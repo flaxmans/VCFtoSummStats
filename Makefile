@@ -7,7 +7,7 @@ CC = g++
 all: ${TARGET}
 
 # rule for build:
-${TARGET}:
+${TARGET}: ${TARGET}.cpp
 	${CC} ${TARGET}.cpp -o ${TARGET}
 
 # rule for cleaning up everything:
