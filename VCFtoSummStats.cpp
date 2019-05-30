@@ -24,61 +24,82 @@
 #include <unistd.h>
 using namespace std;
 
-const bool DEBUG = true;
+// global variables
+const bool DEBUG = true;  	// flag for debugging options in code
 
-// functions
-void openFileStreams(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile)
-{
-    const int expectedArgNum = 2;
-    string progname = argv[0];
-    string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way:\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
-    if ( argc < expectedArgNum ) {
-        cout << message;
-        exit(-1);
-    }
-    
-    string vcfName, popFileName;
-    // parse command line options:
-    int flag;
-    while ((flag = getopt(argc, argv, "V:P:?")) != -1) {
-        switch (flag) {
-            case 'V':
-                vcfName = optarg;
-                break;
-            case 'P':
-                popFileName = optarg;
-                break;
-            default: /* '?' */
-                cout << message;
-                exit(-1);
-        }
-    }
-    
-    if ( DEBUG ) {
-        cout << "\nI found the following names: " << vcfName << "\tand\t" << popFileName << endl;
-    }
-    
-    // open file streams:
-    
-}
 
+// function prototypes:
+void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, int& maxCharPerLine);
 
 int main(int argc, char *argv[])
 {
-    // open file streams for reading:
+	int maxCharPerLine = 0;
+	
+	// parse command line options and open file streams for reading:
     // VCF file and Population File
     ifstream VCFfile, PopulationFile;
-    openFileStreams(argc, argv, VCFfile, PopulationFile);
-    
+    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine);
+	
     // parse information from files needed for figuring out what columns to use
         // (1) identify relevant columns for analysis in VCF file
         // (2) create cross referencing between population file and
     
-    
-    
-    
-    
+	
+	
+	
+	VCFfile.close();
+	PopulationFile.close();
+	
     return 0;
 }
 
 
+// --------------------- function definitions --------------------------- //
+// --------------------- in alphabetical order -------------------------- //
+void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, int& maxCharPerLine)
+{
+	const int expectedMinArgNum = 2;
+	string progname = argv[0];
+	string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way:\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
+	bool maxCharNotSet = true;
+	if ( argc < expectedMinArgNum ) {
+		cout << message;
+		exit(-1);
+	}
+	
+	string vcfName, popFileName;
+	// parse command line options:
+	int flag;
+	while ((flag = getopt(argc, argv, "V:P:L:?")) != -1) {
+		switch (flag) {
+			case 'V':
+				vcfName = optarg;
+				break;
+			case 'P':
+				popFileName = optarg;
+				break;
+			case 'L':
+				maxCharPerLine = atoi(optarg);
+				maxCharNotSet = false;
+				break;
+			default: /* '?' */
+				exit(-1);
+		}
+	}
+	
+	// open file streams and check for errors:
+	VCFfile.open( vcfName );
+	if ( !VCFfile.good() ) {
+		cout << "\nError in parseCommandLineInput():\n\tVCF file name '" << vcfName << " 'not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
+		exit( -1 );
+	}
+	PopulationFile.open( popFileName );
+	if ( !PopulationFile.good() ) {
+		cout << "\nError in parseCommandLineInput():\n\tPopulation file name '" << popFileName << "' not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
+		exit( -1 );
+	}
+	if ( maxCharNotSet ) {
+		maxCharPerLine = 1000;
+		cout << "\nWarning: maxCharPerLine (maximum line length) is not set.  Using default of " << maxCharPerLine << endl;
+	}
+}
