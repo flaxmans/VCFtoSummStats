@@ -22,11 +22,13 @@
 #include <cstdlib>
 #include <fstream>
 #include <unistd.h>
+#include <map>
 #include "VCFtoSummStats.hpp"
 using namespace std;
 
 // global variables
-const bool DEBUG = true;  	// flag for debugging options in code
+const bool DEBUG = true;  	    // flag for debugging options in code
+const int NUM_META_COLS = 9;    // exected number of fields of data prior to samples in VCF;
 
 int main(int argc, char *argv[])
 {
@@ -45,15 +47,46 @@ int main(int argc, char *argv[])
 	// figure get IDs and populations from population file
 	sample *mySamples;
 	mySamples = new sample[numSamples];
-	assignSamplesToPopulations(mySamples, VCFfile, PopulationFile, numSamples, numPopulations, numFields);
-	// getPopulationInformation( PopulationFile, popFileHeader, numSamples, numPopulations );
-	
-	// identify relevant columns for analysis in VCF file
-	// parseVCFcolumns();
-	
-	// create cross referencing between population file and
-	// calculateSNPstats();
-	
+    
+    // need to create cross referencing for population membership by sample
+    map<string, int> mapOfPopulations;
+    map<string, int> mapOfSamples;
+    makePopulationMap( mapOfPopulations, numPopulations );
+    assignPopIndexToSamples( mapOfPopulations, mapOfSamples, PopulationFile  );
+    
+    if ( DEBUG ) {
+        int counter = 0;
+        for( map<string, int>::const_iterator it = mapOfSamples.begin();
+            counter < numSamples;
+            counter++ ) {
+            if ( counter % 100 == 0 || counter == (numSamples - 1) )
+                cout << "\t" << (counter + 1) << "\tKey:  " << it->first << "\t\tValue:  " << it->second << endl;
+            it++;
+        }
+        //exit(0);
+    }
+    
+    // assign each sample column in the VCF to a population:
+    int *populationReference;
+    populationReference = new int[numSamples];
+    bool success = assignSamplesToPopulations(VCFfile, numSamples, numFields, mapOfSamples, populationReference);
+    if ( DEBUG ) {
+        if ( success ) {
+            cout << "\nassignSamplesToPopulations() exited cleanly\n\n";
+        }
+    }
+    // after that function call, the  VCFfile stream has pointed
+    // to the first entry of the first line of data
+    
+    // go through data and calculate allele frequencies:
+    
+    
+    exit(0);
+    
+    
+    // parse VCF and calculate allele frequencies by population
+    
+    
 	// cleanup: close files:
 	VCFfile.close();
 	PopulationFile.close();
@@ -72,63 +105,148 @@ int main(int argc, char *argv[])
 
 // --------------------- function definitions --------------------------- //
 // --------------------- in alphabetical order -------------------------- //
-void assignSamplesToPopulations(sample *mySamples, ifstream& VCFfile, ifstream& PopulationFile, int numSamples, int numPopulations, int numFields)
+void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, int>& mapOfSamples, ifstream& PopulationFile )
 {
-	int count = 0, firstSampleCol = (numFields - numSamples + 1);
-	int infoColNum, formatColNum;
-	string x;
-	bool lookingForHeaders = true;
-	while ( VCFfile >> x && count < (2 * numFields) ) {
-		if ( lookingForHeaders ) {
-			if ( x.substr(0,2) == "##" ) {
-				VCFfile.ignore(unsigned(-1), '\n'); // move to next line
-			} else if ( x.substr(0,1) == "#" ) {
-				// this is the header row after the meta-data header lines
-				for ( int i = 1; i < firstSampleCol ; i++ ) {
-					if ( x == "INFO" ) {
-						// this is the info column
-						infoColNum = i;
-						cout << "AF1\t";
-					} else if ( x == "FORMAT" ) {
-						// this is the FORMAT column
-						formatColNum = i;
-					}
-					cout << x << "\t";
-					VCFfile >> x;
-					++count;
-				}
-				cout << endl;
-				VCFfile.ignore(unsigned(-1), '\n');
-				lookingForHeaders = false;
-			} else {
-				++count;
-				if ( DEBUG ) {
-					if ( x == "FORMAT" ) {
-						cout << "\nFORMAT at " << count << "th column" << endl;
-					}
-					if ( count == (firstSampleCol - 1) ) {
-						cout << "\nLast non-sample col is " << x << ", which is " << (firstSampleCol - 1) << "th field" << endl;
-					} else if ( count == firstSampleCol ) {
-						cout << "\nFirst sample col is " << x << ", which is " << firstSampleCol << "th field" << endl;
-					}
-					cout << x << "\t";
-				}
-				if ( count == numFields ) {
-					lookingForHeaders = false;
-					cout << endl;
-				}
-			}
-		} else {
-			for ( int i = 0; i < firstSampleCol; i++ ) {
-				cout << x << "\t";
-				VCFfile >> x;
-				++count;
-			}
-			cout << endl;
-			VCFfile.ignore(unsigned(-1), '\n');
-		}
-	}
-	cout << endl;
+    string sampleID, popMembership;
+    int popIndex, count = 0;
+    while ( PopulationFile >> sampleID >> popMembership ) {
+        // get index from population map key-value pair:
+        popIndex = mapOfPopulations[ popMembership ];
+        // insert index assign that index to the sampleID in the map of samples
+        mapOfSamples[ sampleID ] = popIndex;
+//        if ( DEBUG ) {
+//            if ( ++count % 20 == 1)
+//                cout << sampleID << "\t" << popMembership << "\t" << popIndex << "\t" << mapOfSamples[ sampleID ] << endl;
+//        }
+    }
+}
+
+
+bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields, map<string, int> mapOfSamples, int *populationReference)
+{
+    int count = 0, firstSampleCol = (numFields - numSamples + 1);
+    int infoColNum, formatColNum, popIndex;
+    string x;
+    bool lookingForHeaders = true;
+    
+    if ( DEBUG ) {
+        if ( firstSampleCol != 10 ) { // expectation based upon VCF format standards
+            cout << "\nError!  First sample column was NOT estimated to be 10th field!\n";
+            cout << "\t Aborting ...\n\n";
+            exit(-2);
+        }
+    }
+    
+    // First: get to header row (past meta-rows) in VCF file:
+    while ( VCFfile >> x ) {
+        //if ( lookingForHeaders ) {
+        if ( x.substr(0,2) == "##" ) {
+            VCFfile.ignore(unsigned(-1), '\n'); // move to next line
+        } else if ( x == "#CHROM" ) {
+            // this is the header row after the meta-data header lines
+            for ( int i = 0; i < NUM_META_COLS ; i++ ) {
+                // advance to first sample header:
+                if ( DEBUG ) {
+                    if ( i == (NUM_META_COLS - 1) )
+                        cout << "\nYour VCF's last meta-field and some of the sample fields:\n" << x;
+                }
+                VCFfile >> x;
+                
+            }
+            
+            string sampleID = x;
+            for ( count = 0; count < numSamples; count ++ ) {
+                // map sample column to population
+                popIndex = mapOfSamples[ sampleID ];
+                populationReference[ count ] = popIndex;
+                if ( DEBUG ) {
+                    if ( count % 100 == 0 || count == (numSamples - 1))
+                        cout << " ... " << sampleID << ", popIndex=" << populationReference[count];
+                }
+                // advance the VCF stream pointer to the next string
+                VCFfile >> sampleID;
+            }
+            
+            if ( DEBUG )
+                cout << "\n\nMost recently obtained string from VCFfile stream: " << sampleID << "\n\n";
+            
+//            if ( x == "INFO" ) {
+//                // this is the info column
+//                //infoColNum = i;
+//                cout << "AF1\t";
+//            } else if ( x == "FORMAT" ) {
+//                // this is the FORMAT column
+//                //formatColNum = i;
+//            }
+//            cout << x << "\t";
+//            VCFfile >> x;
+//            ++count;
+//            cout << endl;
+//            VCFfile.ignore(unsigned(-1), '\n');
+//            //lookingForHeaders = false;
+            return true;
+        } else {
+            cout << "\nError!  VCF file not structured as expected!\n";
+            cout << "I did NOT find a header row starting with #CHROM\n\t Aborting ...\n\n";
+            exit(-2);
+        }
+    }
+    return false;  // execution should never reach here unless VCF file has ONLY ## rows
+    
+    
+//                ++count;
+//                if ( DEBUG ) {
+//                    if ( x == "FORMAT" ) {
+//                        cout << "\nFORMAT at " << count << "th column" << endl;
+//                    }
+//                    if ( count == (firstSampleCol - 1) ) {
+//                        cout << "\nLast non-sample col is " << x << ", which is " << (firstSampleCol - 1) << "th field" << endl;
+//                    } else if ( count == firstSampleCol ) {
+//                        cout << "\nFirst sample col is " << x << ", which is " << firstSampleCol << "th field" << endl;
+//                    }
+//                    cout << x << "\t";
+//                }
+//                if ( count == numFields ) {
+//                    lookingForHeaders = false;
+//                    cout << endl;
+//                }
+//            }
+//        } else {
+//            for ( int i = 0; i < firstSampleCol; i++ ) {
+//                cout << x << "\t";
+//                VCFfile >> x;
+//                ++count;
+//            }
+//            cout << endl;
+//            VCFfile.ignore(unsigned(-1), '\n');
+//        }
+//    }
+//    cout << endl;
+}
+
+
+void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  )
+{
+    // helpful code for working with maps borrowed from:
+    // https://thispointer.com/stdmap-tutorial-part-1-usage-detail-with-examples/
+    
+    ifstream uniquePopFile( "UniquePopFileTemp.txt" );
+    string popID;
+    int index = 0;
+    
+    // get unique populations
+    while( uniquePopFile >> popID ) {
+        mapOfPopulations[ popID ] = index++;
+    }
+    
+    uniquePopFile.close();
+    
+    if ( DEBUG ) {
+        if ( index != numPopulations ) {
+            cout << "\nError!  numPopulations (" << numPopulations << ") != number of keys (" << index << ") in mapOfPopulations!\n\tExiting!\n\n";
+            exit(-1);
+        }
+    }
 }
 
 

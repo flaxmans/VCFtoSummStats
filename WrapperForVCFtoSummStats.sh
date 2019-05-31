@@ -62,10 +62,9 @@ fi
 # calculate number of populations present in population file
 numPopulations=$(cut -f2 $usefile | sort | uniq | wc -l | awk '{print $1}')
 echo "I found $numPopulations populations in the population file $2."
-if [ -f "fooDataTmp" ]
-then
-	rm fooDataTmp
-fi
+# create file of unique population names:
+cut -f2 $usefile | sort | uniq > UniquePopFileTemp.txt
+
 
 # some info on VCF file:
 # calculate number of fields of data:
@@ -88,6 +87,12 @@ then
     echo "\tdoes not match expected number of fields based upon"
     echo "\t9 + number of samples found in $2."
     echo "\t ** aborting execution ** "
+    # clean up:
+    rm UniquePopFileTemp.txt
+    if [ -f "fooDataTmp" ]
+    then
+        rm fooDataTmp
+    fi
     exit -1
 else
     echo "\n\tNumber of fields found in $1 "
@@ -103,3 +108,10 @@ printf "\nNow invoking VCFtoSummStats with following command:\n\t"
 myCmd="./VCFtoSummStats -V $1 -P $2 -L $maxCharPerLine -H $header -N $numSamples2 -n $numPopulations -F $numFields"
 echo "$myCmd"
 $myCmd
+
+# clean up:
+# rm UniquePopFileTemp.txt
+if [ -f "fooDataTmp" ]
+then
+    rm fooDataTmp
+fi
