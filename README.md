@@ -16,7 +16,7 @@ You can build (compile) the program from the UNIX/Linux-style command line by
 
 Use of the helper wrapper script is strongly recommended.  For example, a test case can be invoked in the UNIX/Linux-like terminal like this:
 
-`sh WrapperForVCFtoSummStats.sh VCFtenLines.txt popMap.txt`
+`sh WrapperForVCFtoSummStats.sh ExampleDataFiles/VCFtenLines.txt ExampleDataFiles/popMap.txt`
 
 where `VCFtenLines.txt` is a small test snippet of a VCF file containing one header row and 9 SNP rows, and `popMap.txt` is a two-column, plain-text datafile, in which the first column is the sample IDs (corresponding to columns ID's of sample data in the VCF file) and the second column is a population designation.
 
