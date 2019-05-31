@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 void assignSamplesToPopulations(sample *mySamples, ifstream& VCFfile, ifstream& PopulationFile, int numSamples, int numPopulations, int numFields)
 {
 	int count = 0, firstSampleCol = (numFields - numSamples + 1);
-	int infoColNum;
+	int infoColNum, formatColNum;
 	string x;
 	bool lookingForHeaders = true;
 	while ( VCFfile >> x && count < (2 * numFields) ) {
@@ -88,7 +88,7 @@ void assignSamplesToPopulations(sample *mySamples, ifstream& VCFfile, ifstream& 
 					if ( x == "INFO" ) {
 						// this is the info column
 						infoColNum = i;
-						cout << "AF1\t"
+						cout << "AF1\t";
 					} else if ( x == "FORMAT" ) {
 						// this is the FORMAT column
 						formatColNum = i;
