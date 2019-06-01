@@ -11,9 +11,11 @@ void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, in
 
 bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields, map<string, int> mapOfSamples, int *populationReference);
 
+void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats );
+
 void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  );
 
-void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields);
+void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats);
 
-
+bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat );
 

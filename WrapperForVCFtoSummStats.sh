@@ -103,9 +103,21 @@ fi
 # count maximum line length:
 maxCharPerLine=$(awk '{ print length }' $1 | sort -nr | head -n 1)
 
+# determine if all genotype formats are same:
+FORMATCOL=9
+firstLine=$(awk ' { if ( $1 == "#CHROM" )  { print NR; exit }} ' $1)
+firstLine=$(($firstLine+1))
+echo "\nFirst line of actual data in VCF file is line no. $firstLine"
+# get format field:
+echo "\nChecking for consistency of FORMAT (column no. $FORMATCOL) in VCF file.\n\t... This could take a few minutes ..."
+awk -v var="$firstLine" -v col="$FORMATCOL" '{if (NR >= var) print $col}' $1 > foofootmp
+numFormats=$(uniq foofootmp | wc -l | awk '{ print $1 }')
+rm foofootmp
+echo "\tNumber of unique formats in VCF file: $numFormats"
+
 # call program:
 printf "\nNow invoking VCFtoSummStats with following command:\n\t"
-myCmd="./VCFtoSummStats -V $1 -P $2 -L $maxCharPerLine -H $header -N $numSamples2 -n $numPopulations -F $numFields"
+myCmd="./VCFtoSummStats -V $1 -P $2 -L $maxCharPerLine -H $header -N $numSamples2 -n $numPopulations -F $numFields -f $numFormats"
 echo "$myCmd"
 $myCmd
 

@@ -23,6 +23,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <map>
+#include <sstream>
 #include "VCFtoSummStats.hpp"
 using namespace std;
 
@@ -32,7 +33,8 @@ const int NUM_META_COLS = 9;    // exected number of fields of data prior to sam
 
 int main(int argc, char *argv[])
 {
-	int maxCharPerLine, numSamples, numPopulations, numFields;
+	int numSamples, numPopulations, numFields, numFormats = 1;
+    long int maxCharPerLine;
 	bool popFileHeader;
 	
 	if ( DEBUG )
@@ -41,7 +43,7 @@ int main(int argc, char *argv[])
 	// parse command line options and open file streams for reading:
     // VCF file and Population File
     ifstream VCFfile, PopulationFile;
-    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields);
+    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats);
 	
     // parse information from files needed for figuring out what columns to use
 	
@@ -52,7 +54,23 @@ int main(int argc, char *argv[])
     assignPopIndexToSamples( mapOfPopulations, mapOfSamples, PopulationFile  );
     
     if ( DEBUG ) {
+        string dum;
         int counter = 0;
+        cout << "\nmapOfPopulations:\n";
+        for( map<string, int>::const_iterator it = mapOfPopulations.begin();
+            counter < numPopulations;
+            counter++ ) {
+            dum = it->first;
+            if ( dum.length() == 1 ) {
+                dum = dum + "\t\t";
+            } else if ( dum.length() < 9 ) {
+                dum = dum + "\t";
+            }
+            cout << "\t" << (counter + 1) << "\tKey:  " << dum << "\tValue:  " << it->second << endl;
+            it++;
+        }
+        cout << "\nmapOfSamples (subset):\n";
+        counter = 0;
         for( map<string, int>::const_iterator it = mapOfSamples.begin();
             counter < numSamples;
             counter++ ) {
@@ -60,7 +78,6 @@ int main(int argc, char *argv[])
                 cout << "\t" << (counter + 1) << "\tKey:  " << it->first << "\t\tValue:  " << it->second << endl;
             it++;
         }
-        //exit(0);
     }
     
     // assign each sample column in the VCF to a population:
@@ -76,6 +93,7 @@ int main(int argc, char *argv[])
     // to the first entry of the first line of data
     
     // go through data and calculate allele frequencies:
+    calculateAlleleFrequencies( VCFfile, numFormats );
     
     
     exit(0);
@@ -135,7 +153,6 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
     
     // First: get to header row (past meta-rows) in VCF file:
     while ( VCFfile >> x ) {
-        //if ( lookingForHeaders ) {
         if ( x.substr(0,2) == "##" ) {
             VCFfile.ignore(unsigned(-1), '\n'); // move to next line
         } else if ( x == "#CHROM" ) {
@@ -177,29 +194,26 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
                 }
                 
                 // advance the VCF stream pointer to the next string
-                VCFfile >> sampleID;
+                if ( count < (numSamples - 1) )
+                    VCFfile >> sampleID;
+                else
+                    VCFfile.ignore(); // don't yet read in first entry of next line, but set the stage to
             }
             
-            if ( DEBUG )
+            if ( DEBUG ) {
+                string oneLine;
+                //oneLine = new char[55288];
                 cout << "\n\nMost recently obtained string from VCFfile stream: " << sampleID << "\n\n";
+//                getline( VCFfile, oneLine );
+//                cout << "Results of getline(): " << oneLine << "\n\n";
+//                getline( VCFfile, oneLine );
+//                cout << "Results of getline(): " << oneLine << "\n\n";
+                
+            }
             
-//            if ( x == "INFO" ) {
-//                // this is the info column
-//                //infoColNum = i;
-//                cout << "AF1\t";
-//            } else if ( x == "FORMAT" ) {
-//                // this is the FORMAT column
-//                //formatColNum = i;
-//            }
-//            cout << x << "\t";
-//            VCFfile >> x;
-//            ++count;
-//            cout << endl;
-//            VCFfile.ignore(unsigned(-1), '\n');
-//            //lookingForHeaders = false;
             if ( DEBUG ) {
                 if ( mapOfSamples.find("foobar") == mapOfSamples.end() )
-                    cout << "\nBogus call to mapOfSamples returned mapOfSamples.end() = " << endl;
+                    cout << "\nBogus call to mapOfSamples returned mapOfSamples.end()" << endl;
             }
             
             return true;
@@ -211,37 +225,36 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
     }
     
     return false;  // execution should never reach here unless VCF file has ONLY ## rows
-    
-    
-//                ++count;
-//                if ( DEBUG ) {
-//                    if ( x == "FORMAT" ) {
-//                        cout << "\nFORMAT at " << count << "th column" << endl;
-//                    }
-//                    if ( count == (firstSampleCol - 1) ) {
-//                        cout << "\nLast non-sample col is " << x << ", which is " << (firstSampleCol - 1) << "th field" << endl;
-//                    } else if ( count == firstSampleCol ) {
-//                        cout << "\nFirst sample col is " << x << ", which is " << firstSampleCol << "th field" << endl;
-//                    }
-//                    cout << x << "\t";
-//                }
-//                if ( count == numFields ) {
-//                    lookingForHeaders = false;
-//                    cout << endl;
-//                }
-//            }
-//        } else {
-//            for ( int i = 0; i < firstSampleCol; i++ ) {
-//                cout << x << "\t";
-//                VCFfile >> x;
-//                ++count;
-//            }
-//            cout << endl;
-//            VCFfile.ignore(unsigned(-1), '\n');
-//        }
-//    }
-//    cout << endl;
 }
+
+
+void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats )
+{
+    string oneLine;
+    long int dumCol, SNPcount = 0;
+    bool keepThis, checkFormat = true;
+    int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1;
+    
+    // work line by line:
+    
+    while ( getline( VCFfile, oneLine ) ) {
+        SNPcount++;
+//        if ( DEBUG ) {
+//            cout << oneLine.substr(0, 20) << endl;
+//        }
+        // turn each line into a string stream for easy parsing by whitespace:
+        stringstream lineStream( oneLine );
+        // work with meta-col data:
+        keepThis = parseMetaColData( lineStream, SNPcount, checkFormat, numTokensInFormat );
+        if ( keepThis ) {
+            // it is a biallelic SNP
+        }
+        if ( numFormats == 1 ) {
+            checkFormat = false; // not needed after first SNP
+        }
+    }
+}
+
 
 
 void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  )
@@ -269,13 +282,13 @@ void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  
 }
 
 
-void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields)
+void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats)
 {
 	const int expectedMinArgNum = 2;
 	string progname = argv[0];
 	string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way:\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
 	bool maxCharSet = false, popFileHeaderSet = false, numFieldsSet = false;
-	bool numSamplesSet = false, numPopulationsSet = false;
+	bool numSamplesSet = false, numPopulationsSet = false, numFormatsSet = false;
 	if ( argc < expectedMinArgNum ) {
 		cout << message;
 		exit(-1);
@@ -284,7 +297,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 	string vcfName, popFileName;
 	// parse command line options:
 	int flag;
-	while ((flag = getopt(argc, argv, "V:P:L:H:N:n:F:?")) != -1) {
+    while ((flag = getopt(argc, argv, "V:P:L:H:N:n:F:f:?")) != -1) {
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
@@ -312,6 +325,10 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 				numFields = atoi(optarg);
 				numFieldsSet = true;
 				break;
+            case 'f':
+                numFormats = atoi(optarg);
+                numFormatsSet = true;
+                break;
 			default: /* '?' */
 				exit(-1);
 		}
@@ -330,10 +347,19 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 	}
 	
 	// error checking on user input; some arguments are mandatory!
+    string testString;
+    if ( DEBUG ) {
+        cout << "\nMax length of string on this system = " << testString.max_size() << "\n\n";
+    }
 	if ( !maxCharSet ) {
-		maxCharPerLine = 1000;
+		maxCharPerLine = testString.max_size();
 		cout << "\nWarning: maxCharPerLine (maximum line length) is not set.  Using default of " << maxCharPerLine << endl;
-	}
+    } else if ( maxCharPerLine > testString.max_size() ) {
+        cout << "\nError!  maxCharPerLine in your VCFfile is " << maxCharPerLine << ",\n";
+        cout << "but max string length on this system is " << testString.max_size() << endl;
+        cout << "Please report this to flaxmans@colorado.edu\n\tAborting ... \n\n";
+        exit(-1);
+    }
 	if ( !popFileHeaderSet ) {
 		cout << "\nError! popFileHeader option (-H) needs to be set to 0 (false) or 1 (true)\nExiting ... \n\n";
 		exit( -1 );
@@ -353,4 +379,96 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 		cout << "\nError! numFields option (-F) needs to be set to number of fields in VCF file.\nExiting ... \n\n";
 		exit( -1 );
 	}
+    if ( !numFormatsSet ) {
+        cout << "\nWarning!! numFormats (-f) not set on command line.\nAssuming numFormats = " << numFormats << endl;
+    }
+}
+
+
+bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat, int& numTokensInFormat )
+{
+    int dumi;  // field counter, starting with index of 1
+    string buffer, myDelim = ":", token;
+    string CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO, FORMAT;
+    size_t pos;
+    bool keepThis;
+    
+    if ( DEBUG ) {
+        cout << "\n *** SNPcount = " << SNPcount << endl;
+    }
+    
+    // loop over fields:
+    for ( int col = 1; col <= NUM_META_COLS; col++ ) {
+        lineStream >> buffer;
+        switch ( col ) {
+            case 1:
+                CHROM = buffer;
+                break;
+            case 2:
+                POS = buffer;
+                break;
+            case 3:
+                ID = buffer;
+                break;
+            case 4:
+                REF = buffer;
+                break;
+            case 5:
+                ALT = buffer;
+                break;
+            case 6:
+                QUAL = buffer;
+                break;
+            case 7:
+                FILTER = buffer;
+                break;
+            case 8:
+                INFO = buffer;
+                break;
+            case 9:
+                FORMAT = buffer;
+                break;
+            default:
+                cout << "\nError in calculateAlleleFrequencies():\n\t";
+                cout << "case-switch not working as expected.\n\tAborting ...\n\n";
+                exit(-3);
+                break;
+        }
+    }
+    
+    cout <<  CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << endl;
+    
+    if ( checkFormat ) {
+        if ( DEBUG && SNPcount < 4 ) {
+            dumi = 0;
+            // mess with string splitting
+            // thanks to https://stackoverflow.com/questions/14265581/parse-split-a-string-in-c-using-string-delimiter-standard-c
+            cout << "pos\ttoken\n";
+            while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
+                dumi++;
+                token = FORMAT.substr(0, pos);
+                cout << pos  << "\t" << token << endl;
+                FORMAT.erase(0, pos + myDelim.length());
+            }
+            token = FORMAT;
+            cout << "last\t" << token << "\twhile loop count = " << dumi << endl;
+            numTokensInFormat = dumi + 1;
+            
+        }
+    }
+    // check for bi-allelic SNPs:
+    if ( ALT.length() == 1 ) {
+        // it should be biallelic
+        keepThis = true;
+    } else {
+        keepThis = false;
+    }
+    
+    if ( DEBUG ) {
+        if ( ALT.length() != 1 ) {
+            cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
+        }
+    }
+    
+    return keepThis;
 }
