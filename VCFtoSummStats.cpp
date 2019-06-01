@@ -29,13 +29,15 @@ using namespace std;
 
 // global variables
 const bool DEBUG = true;  	    // flag for debugging options in code
-const int NUM_META_COLS = 9;    // exected number of fields of data prior to samples in VCF;
+const int NUM_META_COLS = 9;    // exected number of fields of data prior to samples in VCF
+const string FORMAT_DELIM_DEFAULT = ":"; // expected delimiter of subfields of FORMAT column of VCF
 
 int main(int argc, char *argv[])
 {
 	int numSamples, numPopulations, numFields, numFormats = 1;
     long int maxCharPerLine;
 	bool popFileHeader;
+    string formatDelim = FORMAT_DELIM_DEFAULT;
 	
 	if ( DEBUG )
 		cout << "\nI'm running!\n\n";
@@ -43,15 +45,23 @@ int main(int argc, char *argv[])
 	// parse command line options and open file streams for reading:
     // VCF file and Population File
     ifstream VCFfile, PopulationFile;
-    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats);
+    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim );
 	
     // parse information from files needed for figuring out what columns to use
 	
     // create cross referencing for population membership by sample:
-    map<string, int> mapOfPopulations;
-    map<string, int> mapOfSamples;
+    map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
+    map<string, int> mapOfSamples;          // key = sample ID, value = integer representing population index
+    int numSamplesPerPopulation[numPopulations];
     makePopulationMap( mapOfPopulations, numPopulations );
-    assignPopIndexToSamples( mapOfPopulations, mapOfSamples, PopulationFile  );
+    assignPopIndexToSamples( mapOfPopulations, mapOfSamples, PopulationFile, numSamplesPerPopulation, numPopulations  );
+    
+    if ( DEBUG ) {
+        cout << "\nNumber of samples per population:\n";
+        for ( int i = 0; i < numPopulations; i++ ) {
+            cout << "\t" << i << ":\t" << numSamplesPerPopulation[i] << endl;
+        }
+    }
     
     if ( DEBUG ) {
         string dum;
@@ -93,7 +103,7 @@ int main(int argc, char *argv[])
     // to the first entry of the first line of data
     
     // go through data and calculate allele frequencies:
-    calculateAlleleFrequencies( VCFfile, numFormats );
+    calculateAlleleFrequencies( VCFfile, numFormats, formatDelim );
     
     
     exit(0);
@@ -120,15 +130,18 @@ int main(int argc, char *argv[])
 
 // --------------------- function definitions --------------------------- //
 // --------------------- in alphabetical order -------------------------- //
-void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, int>& mapOfSamples, ifstream& PopulationFile )
+void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, int>& mapOfSamples, ifstream& PopulationFile, int numSamplesPerPopulation[], int numPopulations )
 {
     string sampleID, popMembership;
     int popIndex, count = 0;
+    for ( int i = 0; i < numPopulations; i++ )
+        numSamplesPerPopulation[i] = 0; // initialize to make sure it starts at zero
     while ( PopulationFile >> sampleID >> popMembership ) {
         // get index from population map key-value pair:
         popIndex = mapOfPopulations[ popMembership ];
         // insert index assign that index to the sampleID in the map of samples
         mapOfSamples[ sampleID ] = popIndex;
+        numSamplesPerPopulation[ popIndex ]++;
 //        if ( DEBUG ) {
 //            if ( ++count % 20 == 1)
 //                cout << sampleID << "\t" << popMembership << "\t" << popIndex << "\t" << mapOfSamples[ sampleID ] << endl;
@@ -228,12 +241,14 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
 }
 
 
-void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats )
+void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats, string formatDelim )
 {
     string oneLine;
     long int dumCol, SNPcount = 0;
     bool keepThis, checkFormat = true;
     int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1;
+    // the latter ints are for parsing GT = genotype, DP = depth,
+    // and GQ = quality sub-fields of the FORMAT column
     
     // work line by line:
     
@@ -245,7 +260,7 @@ void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats )
         // turn each line into a string stream for easy parsing by whitespace:
         stringstream lineStream( oneLine );
         // work with meta-col data:
-        keepThis = parseMetaColData( lineStream, SNPcount, checkFormat, numTokensInFormat );
+        keepThis = parseMetaColData( lineStream, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, formatDelim);
         if ( keepThis ) {
             // it is a biallelic SNP
         }
@@ -253,6 +268,18 @@ void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats )
             checkFormat = false; // not needed after first SNP
         }
     }
+}
+
+
+inline void checkFormatToken( string token, int& GTtoken, int& DPtoken, int& GQtoken, int subfieldCount  )
+{
+    // record sub-field:
+    if ( token == "GT" )
+        GTtoken = subfieldCount;
+    else if ( token == "DP" )
+        DPtoken = subfieldCount;
+    else if ( token == "GQ" )
+        GQtoken = subfieldCount;
 }
 
 
@@ -282,7 +309,7 @@ void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  
 }
 
 
-void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats)
+void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim)
 {
 	const int expectedMinArgNum = 2;
 	string progname = argv[0];
@@ -297,7 +324,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 	string vcfName, popFileName;
 	// parse command line options:
 	int flag;
-    while ((flag = getopt(argc, argv, "V:P:L:H:N:n:F:f:?")) != -1) {
+    while ((flag = getopt(argc, argv, "V:P:L:H:N:n:F:f:D:")) != -1) {
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
@@ -328,6 +355,9 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
             case 'f':
                 numFormats = atoi(optarg);
                 numFormatsSet = true;
+                break;
+            case 'D':
+                formatDelim = optarg;
                 break;
 			default: /* '?' */
 				exit(-1);
@@ -385,10 +415,10 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 }
 
 
-bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat, int& numTokensInFormat )
+bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, string formatDelim )
 {
-    int dumi;  // field counter, starting with index of 1
-    string buffer, myDelim = ":", token;
+    int subfieldCount;  // field counter, starting with index of 1
+    string buffer, myDelim = formatDelim, token;
     string CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO, FORMAT;
     size_t pos;
     bool keepThis;
@@ -439,22 +469,40 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
     cout <<  CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << endl;
     
     if ( checkFormat ) {
-        if ( DEBUG && SNPcount < 4 ) {
-            dumi = 0;
-            // mess with string splitting
-            // thanks to https://stackoverflow.com/questions/14265581/parse-split-a-string-in-c-using-string-delimiter-standard-c
-            cout << "pos\ttoken\n";
-            while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
-                dumi++;
-                token = FORMAT.substr(0, pos);
-                cout << pos  << "\t" << token << endl;
-                FORMAT.erase(0, pos + myDelim.length());
-            }
-            token = FORMAT;
-            cout << "last\t" << token << "\twhile loop count = " << dumi << endl;
-            numTokensInFormat = dumi + 1;
-            
+        subfieldCount = 0;
+        // string splitting, with thanks to:
+        // https://stackoverflow.com/questions/14265581/parse-split-a-string-in-c-using-string-delimiter-standard-c
+        if ( DEBUG ) {
+            cout << "** Parsing FORMAT **\n\tsubfieldcount\tpos\ttoken\n";
         }
+        while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
+            subfieldCount++;
+            token = FORMAT.substr(0, pos);
+            // record sub-field if it matches one we're looking for:
+            checkFormatToken( token, GTtoken, DPtoken, GQtoken, subfieldCount );
+            if ( DEBUG ) {
+                cout << "\t" << subfieldCount << "\t\t" << pos  << "\t" << token << endl;
+            }
+            FORMAT.erase(0, pos + myDelim.length());
+        }
+        numTokensInFormat = subfieldCount + 1;
+        checkFormatToken( FORMAT, GTtoken, DPtoken, GQtoken, numTokensInFormat ); // check remaining field (after last occurrence of delimiter)
+        // error checking on occurrence of GT:
+        if ( GTtoken == -1 ) { // -1 is flag for not set
+            cout << "\nError!  GT subfield was not found in FORMAT.\nPlease double-check your format column.\n";
+            cout << "If your VCF's FORMAT column uses a subfield delimiter other than the colon (:),\n";
+            cout << "indicate that by using the call provided by the wrapper script with the\n";
+            cout << "addition of the -D DELIM command line option, where 'DELIM' is replaced\n";
+            cout << "by the delimiter your VCF uses.\n\tAborting ...\n\n";
+            exit(-3);
+        }
+        
+        if ( DEBUG ) {
+            cout << "\t" << numTokensInFormat << "\t\tlast\t" << FORMAT << "\twhile loop count = " << subfieldCount << endl;
+            cout << "GTtoken = " << GTtoken << "; DPtoken = " << DPtoken << "; GQtoken = " << GQtoken << endl;
+        }
+        
+        
     }
     // check for bi-allelic SNPs:
     if ( ALT.length() == 1 ) {

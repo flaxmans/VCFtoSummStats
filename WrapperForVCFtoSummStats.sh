@@ -80,6 +80,11 @@ echo "\t#CHROM  POS  ID  REF ALT  QUAL  FILTER  INFO  FORMAT"
 echo "This is based upon:\n\thttp://samtools.github.io/hts-specs/VCFv4.3.pdf\n\t(accessed 5/31/19)".
 echo "If your VCF differs from these expectations, then the program will NOT work."
 
+printf "\n\t"
+read -n 1 -s -r -p "*** Press any key to continue ***"
+# thanks to https://unix.stackexchange.com/questions/293940/bash-how-can-i-make-press-any-key-to-continue
+# for read command
+
 expectedCols=$((9+$numSamples2))
 if [ ! $expectedCols -eq $numFields ]
 then
