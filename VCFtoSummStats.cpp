@@ -28,42 +28,42 @@
 using namespace std;
 
 // global variables
-const bool DEBUG = true;  	    // flag for debugging options in code
 const int NUM_META_COLS = 9;    // exected number of fields of data prior to samples in VCF
 const string FORMAT_DELIM_DEFAULT = ":"; // expected delimiter of subfields of FORMAT column of VCF
 
 int main(int argc, char *argv[])
 {
-	int numSamples, numPopulations, numFields, numFormats = 1;
+    // variables for command line arguments:
+    int numSamples, numPopulations, numFields, numFormats = 1;
     long int maxCharPerLine;
 	bool popFileHeader;
     string formatDelim = FORMAT_DELIM_DEFAULT;
-	
-	if ( DEBUG )
-		cout << "\nI'm running!\n\n";
+    // data file streams:
+    ifstream VCFfile, PopulationFile;
+    
+#ifdef DEBUG
+        string progname = argv[0];
+		cout << "\n\t" << progname << " is running!\n\n";
+#endif
 	
 	// parse command line options and open file streams for reading:
-    // VCF file and Population File
-    ifstream VCFfile, PopulationFile;
     parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim );
-	
-    // parse information from files needed for figuring out what columns to use
 	
     // create cross referencing for population membership by sample:
     map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
     map<string, int> mapOfSamples;          // key = sample ID, value = integer representing population index
-    int numSamplesPerPopulation[numPopulations];
+    int numSamplesPerPopulation[numPopulations];    // for later frequency calculations
     makePopulationMap( mapOfPopulations, numPopulations );
     assignPopIndexToSamples( mapOfPopulations, mapOfSamples, PopulationFile, numSamplesPerPopulation, numPopulations  );
     
-    if ( DEBUG ) {
+#ifdef DEBUG
+        // view number of samples per population:
         cout << "\nNumber of samples per population:\n";
         for ( int i = 0; i < numPopulations; i++ ) {
             cout << "\t" << i << ":\t" << numSamplesPerPopulation[i] << endl;
         }
-    }
-    
-    if ( DEBUG ) {
+
+        // view maps created by last two function calls:
         string dum;
         int counter = 0;
         cout << "\nmapOfPopulations:\n";
@@ -88,17 +88,18 @@ int main(int argc, char *argv[])
                 cout << "\t" << (counter + 1) << "\tKey:  " << it->first << "\t\tValue:  " << it->second << endl;
             it++;
         }
-    }
+#endif
     
     // assign each sample column in the VCF to a population:
     int *populationReference;
     populationReference = new int[numSamples];
     bool success = assignSamplesToPopulations(VCFfile, numSamples, numFields, mapOfSamples, populationReference);
-    if ( DEBUG ) {
+
+#ifdef DEBUG
         if ( success ) {
             cout << "\nassignSamplesToPopulations() exited cleanly\n\n";
         }
-    }
+#endif
     // after that function call, the  VCFfile stream has pointed
     // to the first entry of the first line of data
     
@@ -118,11 +119,10 @@ int main(int argc, char *argv[])
 	// free memory:
 	//delete mySamples;
 	
-	// if (DEBUG)
-	//	cout << "\nmaxCharPerLine = " << maxCharPerLine << "; popFileHeader = " << popFileHeader << "; numSamples = " << numSamples << endl;
 	
-	if ( DEBUG )
+#ifdef DEBUG
 		cout << "\nI ran!!\n\n";
+#endif
 	
     return 0;
 }
@@ -142,10 +142,6 @@ void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, in
         // insert index assign that index to the sampleID in the map of samples
         mapOfSamples[ sampleID ] = popIndex;
         numSamplesPerPopulation[ popIndex ]++;
-//        if ( DEBUG ) {
-//            if ( ++count % 20 == 1)
-//                cout << sampleID << "\t" << popMembership << "\t" << popIndex << "\t" << mapOfSamples[ sampleID ] << endl;
-//        }
     }
 }
 
@@ -156,13 +152,13 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
     int popIndex;
     string x;
     
-    if ( DEBUG ) {
+#ifdef DEBUG
         if ( firstSampleCol != 10 ) { // expectation based upon VCF format standards
             cout << "\nError!  First sample column was NOT estimated to be 10th field!\n";
             cout << "\t Aborting ...\n\n";
             exit(-2);
         }
-    }
+#endif
     
     // First: get to header row (past meta-rows) in VCF file:
     while ( VCFfile >> x ) {
@@ -172,10 +168,10 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
             // this is the header row after the meta-data header lines
             for ( int i = 0; i < NUM_META_COLS ; i++ ) {
                 // advance to first sample header:
-                if ( DEBUG ) {
+#ifdef DEBUG
                     if ( i == (NUM_META_COLS - 1) )
                         cout << "\nYour VCF's last meta-field and some of the sample fields:\n" << x;
-                }
+#endif
                 VCFfile >> x;
                 
             }
@@ -197,14 +193,14 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
                 // store popIndex in array that maps each column to a population:
                 populationReference[ count ] = popIndex;
                 
-                if ( DEBUG ) {
+#ifdef DEBUG
                     if ( popIndex != iter->second ) {
                         cout << "\nError!  maps aren't working like you think!\n";
                         exit(-3);
                     }
                     if ( count % 100 == 0 || count == (numSamples - 1))
                         cout << " ... " << sampleID << ", popIndex=" << populationReference[count];
-                }
+#endif
                 
                 // advance the VCF stream pointer to the next string
                 if ( count < (numSamples - 1) )
@@ -213,21 +209,11 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
                     VCFfile.ignore(); // don't yet read in first entry of next line, but set the stage to
             }
             
-            if ( DEBUG ) {
-                string oneLine;
-                //oneLine = new char[55288];
+#ifdef DEBUG
                 cout << "\n\nMost recently obtained string from VCFfile stream: " << sampleID << "\n\n";
-//                getline( VCFfile, oneLine );
-//                cout << "Results of getline(): " << oneLine << "\n\n";
-//                getline( VCFfile, oneLine );
-//                cout << "Results of getline(): " << oneLine << "\n\n";
-                
-            }
-            
-            if ( DEBUG ) {
                 if ( mapOfSamples.find("foobar") == mapOfSamples.end() )
                     cout << "\nBogus call to mapOfSamples returned mapOfSamples.end()" << endl;
-            }
+#endif
             
             return true;
         } else {
@@ -254,16 +240,17 @@ void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats, string format
     
     while ( getline( VCFfile, oneLine ) ) {
         SNPcount++;
-//        if ( DEBUG ) {
-//            cout << oneLine.substr(0, 20) << endl;
-//        }
+        
         // turn each line into a string stream for easy parsing by whitespace:
         stringstream lineStream( oneLine );
+        
         // work with meta-col data:
         keepThis = parseMetaColData( lineStream, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, formatDelim);
+        
         if ( keepThis ) {
             // it is a biallelic SNP
         }
+        
         if ( numFormats == 1 ) {
             checkFormat = false; // not needed after first SNP
         }
@@ -280,6 +267,27 @@ inline void checkFormatToken( string token, int& GTtoken, int& DPtoken, int& GQt
         DPtoken = subfieldCount;
     else if ( token == "GQ" )
         GQtoken = subfieldCount;
+}
+
+
+inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken )
+{
+    if ( GTtoken == -1 ) { // -1 is flag for not set
+        cout << "\nError!  GT subfield was not found in FORMAT.\nPlease double-check your format column.\n";
+        cout << "If your VCF's FORMAT column uses a subfield delimiter other than the colon (:),\n";
+        cout << "indicate that by using the call provided by the wrapper script with the\n";
+        cout << "addition of the -D DELIM command line option, where 'DELIM' is replaced\n";
+        cout << "by the delimiter your VCF uses.\n\tAborting ...\n\n";
+        exit(-3);
+    }
+    if ( DPtoken == -1 ) { // -1 is flag for not set
+        cout << "\n*** WARNING!  DP subfield was not found in FORMAT.\n";
+        cout << "The medianDP column in the results file will be filled with NA.\n";
+    }
+    if ( GQtoken == -1 ) { // -1 is flag for not set
+        cout << "\n*** WARNING!  GQ subfield was not found in FORMAT.\n";
+        cout << "The medianGQ column in the results file will be filled with NA.\n";
+    }
 }
 
 
@@ -300,12 +308,12 @@ void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  
     
     uniquePopFile.close();
     
-    if ( DEBUG ) {
+#ifdef DEBUG
         if ( index != numPopulations ) {
             cout << "\nError!  numPopulations (" << numPopulations << ") != number of keys (" << index << ") in mapOfPopulations!\n\tExiting!\n\n";
             exit(-1);
         }
-    }
+#endif
 }
 
 
@@ -378,9 +386,9 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 	
 	// error checking on user input; some arguments are mandatory!
     string testString;
-    if ( DEBUG ) {
+#ifdef DEBUG
         cout << "\nMax length of string on this system = " << testString.max_size() << "\n\n";
-    }
+#endif
 	if ( !maxCharSet ) {
 		maxCharPerLine = testString.max_size();
 		cout << "\nWarning: maxCharPerLine (maximum line length) is not set.  Using default of " << maxCharPerLine << endl;
@@ -423,9 +431,9 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
     size_t pos;
     bool keepThis;
     
-    if ( DEBUG ) {
+#ifdef DEBUG
         cout << "\n *** SNPcount = " << SNPcount << endl;
-    }
+#endif
     
     // loop over fields:
     for ( int col = 1; col <= NUM_META_COLS; col++ ) {
@@ -472,35 +480,28 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
         subfieldCount = 0;
         // string splitting, with thanks to:
         // https://stackoverflow.com/questions/14265581/parse-split-a-string-in-c-using-string-delimiter-standard-c
-        if ( DEBUG ) {
+#ifdef DEBUG
             cout << "** Parsing FORMAT **\n\tsubfieldcount\tpos\ttoken\n";
-        }
+#endif
         while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
             subfieldCount++;
             token = FORMAT.substr(0, pos);
             // record sub-field if it matches one we're looking for:
             checkFormatToken( token, GTtoken, DPtoken, GQtoken, subfieldCount );
-            if ( DEBUG ) {
+#ifdef DEBUG
                 cout << "\t" << subfieldCount << "\t\t" << pos  << "\t" << token << endl;
-            }
+#endif
             FORMAT.erase(0, pos + myDelim.length());
         }
         numTokensInFormat = subfieldCount + 1;
         checkFormatToken( FORMAT, GTtoken, DPtoken, GQtoken, numTokensInFormat ); // check remaining field (after last occurrence of delimiter)
         // error checking on occurrence of GT:
-        if ( GTtoken == -1 ) { // -1 is flag for not set
-            cout << "\nError!  GT subfield was not found in FORMAT.\nPlease double-check your format column.\n";
-            cout << "If your VCF's FORMAT column uses a subfield delimiter other than the colon (:),\n";
-            cout << "indicate that by using the call provided by the wrapper script with the\n";
-            cout << "addition of the -D DELIM command line option, where 'DELIM' is replaced\n";
-            cout << "by the delimiter your VCF uses.\n\tAborting ...\n\n";
-            exit(-3);
-        }
+        errorCheckTokens( GTtoken, DPtoken, GQtoken );
         
-        if ( DEBUG ) {
+#ifdef DEBUG
             cout << "\t" << numTokensInFormat << "\t\tlast\t" << FORMAT << "\twhile loop count = " << subfieldCount << endl;
             cout << "GTtoken = " << GTtoken << "; DPtoken = " << DPtoken << "; GQtoken = " << GQtoken << endl;
-        }
+#endif
         
         
     }
@@ -512,11 +513,11 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
         keepThis = false;
     }
     
-    if ( DEBUG ) {
+#ifdef DEBUG
         if ( ALT.length() != 1 ) {
             cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
         }
-    }
+#endif
     
     return keepThis;
 }

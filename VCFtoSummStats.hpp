@@ -15,6 +15,8 @@ void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats, string format
 
 inline void checkFormatToken( string token, int& GTtoken, int& DPtoken, int& GQtoken, int subfieldCount  );
 
+inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken );
+
 void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  );
 
 void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim );

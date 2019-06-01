@@ -2,7 +2,14 @@
 
 TARGET = VCFtoSummStats
 CC = g++
-CCFLAGS = -g
+
+# conditional compiling:
+DEBUG_MODE?=Y
+ifeq "$(DEBUG_MODE)" "Y" 
+        CCFLAGS=-g -DDEBUG
+else 
+        CCFLAGS=-O3
+endif
 
 # the default target that gets built when you type 'make':
 all: ${TARGET}
