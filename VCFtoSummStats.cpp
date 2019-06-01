@@ -44,11 +44,8 @@ int main(int argc, char *argv[])
     parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields);
 	
     // parse information from files needed for figuring out what columns to use
-	// figure get IDs and populations from population file
-	sample *mySamples;
-	mySamples = new sample[numSamples];
-    
-    // need to create cross referencing for population membership by sample
+	
+    // create cross referencing for population membership by sample:
     map<string, int> mapOfPopulations;
     map<string, int> mapOfSamples;
     makePopulationMap( mapOfPopulations, numPopulations );
@@ -125,9 +122,8 @@ void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, in
 bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields, map<string, int> mapOfSamples, int *populationReference)
 {
     int count = 0, firstSampleCol = (numFields - numSamples + 1);
-    int infoColNum, formatColNum, popIndex;
+    int popIndex;
     string x;
-    bool lookingForHeaders = true;
     
     if ( DEBUG ) {
         if ( firstSampleCol != 10 ) { // expectation based upon VCF format standards
@@ -155,14 +151,31 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
             }
             
             string sampleID = x;
+            map<string, int>::iterator iter; // for checking existence in map
             for ( count = 0; count < numSamples; count ++ ) {
                 // map sample column to population
+                iter = mapOfSamples.find( sampleID );
+                // check to make sure sampleID is in the map:
+                if ( iter == mapOfSamples.end() ) {
+                    cout << "\nError!  Sample header '" << sampleID << "' from VCF file not found in mapOfSamples!" << endl;
+                    cout << "--> Please check that your population file designates\nsamples EXACTLY as they appear in the VCF." << endl;
+                    cout << "\tAborting ... " << endl;
+                    exit(-2);
+                }
+                // get popIndex from map:
                 popIndex = mapOfSamples[ sampleID ];
+                // store popIndex in array that maps each column to a population:
                 populationReference[ count ] = popIndex;
+                
                 if ( DEBUG ) {
+                    if ( popIndex != iter->second ) {
+                        cout << "\nError!  maps aren't working like you think!\n";
+                        exit(-3);
+                    }
                     if ( count % 100 == 0 || count == (numSamples - 1))
                         cout << " ... " << sampleID << ", popIndex=" << populationReference[count];
                 }
+                
                 // advance the VCF stream pointer to the next string
                 VCFfile >> sampleID;
             }
@@ -184,6 +197,11 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
 //            cout << endl;
 //            VCFfile.ignore(unsigned(-1), '\n');
 //            //lookingForHeaders = false;
+            if ( DEBUG ) {
+                if ( mapOfSamples.find("foobar") == mapOfSamples.end() )
+                    cout << "\nBogus call to mapOfSamples returned mapOfSamples.end() = " << endl;
+            }
+            
             return true;
         } else {
             cout << "\nError!  VCF file not structured as expected!\n";
@@ -191,6 +209,7 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
             exit(-2);
         }
     }
+    
     return false;  // execution should never reach here unless VCF file has ONLY ## rows
     
     

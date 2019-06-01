@@ -6,28 +6,6 @@
 using namespace std;
 
 
-// class definitions
-class sample {
-	private:
-		string ID; 				// name or identifier
-		string population;		// population to which it is assigned
-	public:
-		void setID( string name ) {
-			ID = name;
-		}
-		void setPopulation( string name ) {
-			population = name;
-		}
-		string getID( void ) {
-			return ID;
-		}
-		string getPopulation( void ) {
-			return population;
-		}
-};
-
-
-
 // function prototypes (in alphabetical order):
 void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, int>& mapOfSamples, ifstream& PopulationFile );
 
