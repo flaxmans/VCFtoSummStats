@@ -30,11 +30,15 @@ using namespace std;
 // global variables
 const int NUM_META_COLS = 9;    // exected number of fields of data prior to samples in VCF
 const string FORMAT_DELIM_DEFAULT = ":"; // expected delimiter of subfields of FORMAT column of VCF
+const int MAX_SUBFIELDS_IN_FORMAT_DEFAULT = 30;
+const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, SKIP_OPS_CODE = 3;
+    // the latter are FORMAT parsing codes
 
 int main(int argc, char *argv[])
 {
     // variables for command line arguments:
     int numSamples, numPopulations, numFields, numFormats = 1;
+    int maxSubfieldsInFormat = MAX_SUBFIELDS_IN_FORMAT_DEFAULT;
     long int maxCharPerLine;
 	bool popFileHeader;
     string formatDelim = FORMAT_DELIM_DEFAULT;
@@ -47,7 +51,7 @@ int main(int argc, char *argv[])
 #endif
 	
 	// parse command line options and open file streams for reading:
-    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim );
+    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim, maxSubfieldsInFormat );
 	
     // create cross referencing for population membership by sample:
     map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
@@ -104,7 +108,7 @@ int main(int argc, char *argv[])
     // to the first entry of the first line of data
     
     // go through data and calculate allele frequencies:
-    calculateAlleleFrequencies( VCFfile, numFormats, formatDelim );
+    calculateAlleleFrequencies( VCFfile, numFormats, formatDelim, maxSubfieldsInFormat );
     
     
     exit(0);
@@ -227,14 +231,15 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
 }
 
 
-void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats, string formatDelim )
+void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat )
 {
     string oneLine;
     long int dumCol, SNPcount = 0;
-    bool keepThis, checkFormat = true;
+    bool keepThis, checkFormat = true, lookForDP, lookForGQ;
     int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1;
     // the latter ints are for parsing GT = genotype, DP = depth,
     // and GQ = quality sub-fields of the FORMAT column
+    int formatOpsOrder[maxSubfieldsInFormat]; // for keeping track of how to parse FORMAT efficiently
     
     // work line by line:
     
@@ -245,10 +250,16 @@ void calculateAlleleFrequencies(ifstream& VCFfile, int numFormats, string format
         stringstream lineStream( oneLine );
         
         // work with meta-col data:
-        keepThis = parseMetaColData( lineStream, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, formatDelim);
+        keepThis = parseMetaColData( lineStream, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim);
+        
+        if ( checkFormat ) {
+            determineFormatOpsOrder( numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, formatOpsOrder, maxSubfieldsInFormat );
+        }
         
         if ( keepThis ) {
             // it is a biallelic SNP
+            // let's calculate and store data!
+            
         }
         
         if ( numFormats == 1 ) {
@@ -270,7 +281,63 @@ inline void checkFormatToken( string token, int& GTtoken, int& DPtoken, int& GQt
 }
 
 
-inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken )
+void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, string formatDelim, int formatOpsOrder[], int maxSubfieldsInFormat )
+{
+    // first a safety check:
+    if ( maxSubfieldsInFormat < numTokensInFormat ) {
+        cout << "\nError in determineFormatOpsOrder():\n\tmaxSubfieldsInFormat (";
+        cout << maxSubfieldsInFormat << ") < number of subfields in your VCF's FORMAT (";
+        cout << numTokensInFormat << ")\n";
+        cout << "\t--> Call program again with invocation provided by the wrapper\n\t";
+        cout << "plus -S " << numTokensInFormat << "\n\tAborting ...\n";
+        exit(-4);
+    }
+#ifdef DEBUG
+    if ( lookForGQ ) {
+        if ( GTtoken == GQtoken ) {
+            cout << "\nError in determineFormatOpsOrder()!!\n\tGTtoken(" << GTtoken << ") == GQtoken (" << GQtoken << ")\n";
+            exit(-4);
+        }
+    }
+    if ( lookForDP ) {
+        if ( GTtoken == DPtoken ) {
+            cout << "\nError in determineFormatOpsOrder()!!\n\tGTtoken(" << GTtoken << ") == DPtoken (" << DPtoken << ")\n";
+            exit(-4);
+        }
+    }
+    if ( lookForGQ && lookForDP ) {
+        if ( GQtoken == DPtoken ) {
+            cout << "\nError in determineFormatOpsOrder()!!\n\tGQtoken(" << GQtoken << ") == DPtoken (" << DPtoken << ")\n";
+            exit(-4);
+        }
+    }
+#endif
+    
+    int index;
+    for ( int i = 0; i < numTokensInFormat; i++ ) {
+        index = i + 1;  // token indexes start at 1
+        if ( index == GTtoken ) {
+            formatOpsOrder[i] = GT_OPS_CODE;
+        } else if ( index == DPtoken ) {
+            formatOpsOrder[i] = DP_OPS_CODE;
+        } else if ( index == GQtoken ) {
+            formatOpsOrder[i] = GQ_OPS_CODE;
+        } else {
+            formatOpsOrder[i] = SKIP_OPS_CODE;
+        }
+    }
+
+#ifdef DEBUG
+    cout << "\nformatOpsOrder:\n";
+    for ( int i = 0; i < numTokensInFormat; i++ ) {
+        cout << "\t" << formatOpsOrder[i];
+    }
+    cout << endl;
+#endif
+}
+
+
+inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookForDP, bool& lookForGQ )
 {
     if ( GTtoken == -1 ) { // -1 is flag for not set
         cout << "\nError!  GT subfield was not found in FORMAT.\nPlease double-check your format column.\n";
@@ -283,10 +350,16 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken )
     if ( DPtoken == -1 ) { // -1 is flag for not set
         cout << "\n*** WARNING!  DP subfield was not found in FORMAT.\n";
         cout << "The medianDP column in the results file will be filled with NA.\n";
+        lookForDP = false;
+    } else {
+        lookForDP = true;
     }
     if ( GQtoken == -1 ) { // -1 is flag for not set
         cout << "\n*** WARNING!  GQ subfield was not found in FORMAT.\n";
         cout << "The medianGQ column in the results file will be filled with NA.\n";
+        lookForGQ = false;
+    } else {
+        lookForGQ = true;
     }
 }
 
@@ -317,7 +390,7 @@ void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  
 }
 
 
-void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim)
+void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat )
 {
 	const int expectedMinArgNum = 2;
 	string progname = argv[0];
@@ -332,7 +405,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 	string vcfName, popFileName;
 	// parse command line options:
 	int flag;
-    while ((flag = getopt(argc, argv, "V:P:L:H:N:n:F:f:D:")) != -1) {
+    while ((flag = getopt(argc, argv, "V:P:L:H:N:n:F:f:D:S:")) != -1) {
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
@@ -366,6 +439,9 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
                 break;
             case 'D':
                 formatDelim = optarg;
+                break;
+            case 'S':
+                maxSubfieldsInFormat = atoi(optarg);
                 break;
 			default: /* '?' */
 				exit(-1);
@@ -423,7 +499,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 }
 
 
-bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, string formatDelim )
+bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, string formatDelim )
 {
     int subfieldCount;  // field counter, starting with index of 1
     string buffer, myDelim = formatDelim, token;
@@ -496,7 +572,7 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
         numTokensInFormat = subfieldCount + 1;
         checkFormatToken( FORMAT, GTtoken, DPtoken, GQtoken, numTokensInFormat ); // check remaining field (after last occurrence of delimiter)
         // error checking on occurrence of GT:
-        errorCheckTokens( GTtoken, DPtoken, GQtoken );
+        errorCheckTokens( GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ );
         
 #ifdef DEBUG
             cout << "\t" << numTokensInFormat << "\t\tlast\t" << FORMAT << "\twhile loop count = " << subfieldCount << endl;
