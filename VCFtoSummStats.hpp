@@ -17,5 +17,5 @@ void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  
 
 void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats);
 
-bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat );
+bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat, int& numTokensInFormat );
 
