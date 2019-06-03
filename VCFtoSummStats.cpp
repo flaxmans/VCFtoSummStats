@@ -421,7 +421,8 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
         freq = static_cast<double>( altAlleleCounts[i] ) / static_cast<double>( validSampleCounts [i] );
         outputFile << "\t" << freq;
     }
-    outputFile << endl;
+    
+    // outputFile << endl;  not needed here; this is done in parseActualData()
     
     
     
@@ -717,9 +718,6 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
     size_t pos;
     bool keepThis;
     
-#ifdef DEBUG
-        cout << "\n *** SNPcount = " << SNPcount << endl;
-#endif
     
     // loop over fields:
     for ( int col = 1; col <= NUM_META_COLS; col++ ) {
@@ -760,7 +758,11 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
         }
     }
     
-    cout <<  CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << endl;
+    // status report:
+    if ( SNPcount % 5000 == 0 ) {
+        cout << "\nSNP lines processed so far = " << SNPcount << "; Current SNP is:\n\t";
+        cout <<  CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << endl;
+    }
     
     if ( checkFormat ) {
         subfieldCount = 0;
@@ -792,17 +794,15 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
         
     }
     // check for bi-allelic SNPs:
-    if ( REF == "N" || ALT == "N" || ALT.length() > 1 ) {
+    if ( REF == "N" || ALT == "N" || ALT.length() != 1 ) {
         keepThis = false;
     } else {
         keepThis = true;
     }
     
-#ifdef DEBUG
-        if ( ALT.length() != 1 ) {
-            cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
-        }
-#endif
+    if ( !keepThis ) {
+        cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
+    }
     
     return keepThis;
 }
