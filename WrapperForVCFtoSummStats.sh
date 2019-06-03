@@ -100,13 +100,13 @@ then
     fi
     exit -1
 else
-    echo "\n\tNumber of fields found in $1 "
+    echo "\n\n\tNumber of fields found in $1 "
     echo "\tmatches expected number of fields based upon"
     echo "\t9 + number of samples found in $2."
 fi
 
 # count maximum line length:
-maxCharPerLine=$(awk '{ print length }' $1 | sort -nr | head -n 1)
+# maxCharPerLine=$(awk '{ print length }' $1 | sort -nr | head -n 1)
 
 # determine if all genotype formats are same:
 FORMATCOL=9
@@ -122,7 +122,7 @@ echo "\tNumber of unique formats in VCF file: $numFormats"
 
 # call program:
 printf "\nNow invoking VCFtoSummStats with following command:\n\t"
-myCmd="./VCFtoSummStats -V $1 -P $2 -L $maxCharPerLine -H $header -N $numSamples2 -n $numPopulations -F $numFields -f $numFormats"
+myCmd="./VCFtoSummStats -V $1 -P $2 -H $header -N $numSamples2 -n $numPopulations -F $numFields -f $numFormats -l $firstLine"
 echo "$myCmd"
 $myCmd
 
