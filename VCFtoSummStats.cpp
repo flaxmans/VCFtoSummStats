@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     // to the first entry of the first line of data
     
     // go through data and calculate allele frequencies:
-    parseActualData( VCFfile, numFormats, formatDelim, maxSubfieldsInFormat, VCFfileLineCount, outputFile, numSamples, numPopulations, populationReference );
+    parseActualData( VCFfile, numFormats, formatDelim, maxSubfieldsInFormat, VCFfileLineCount, outputFile, numSamples, numPopulations, populationReference, vcfName );
     
 	// cleanup: close files:
 	VCFfile.close();
@@ -249,10 +249,11 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
 }
 
 
-inline int calculateMedian( int values[], int n )
+inline int calculateMedian( int values[], int n, int ignoreFirst )
 {
-    sort( values, values + n );
-    return( values[(n/2)] );
+	int medianSpot = ignoreFirst + ((n - ignoreFirst)/2);
+	sort( values, values + n );
+	return( values[ medianSpot ] );
 }
 
 
@@ -419,15 +420,15 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
     // plus one column for each population named ALT_SNP_FREQ_popName
     int median;
     // medianDP:
-    if ( lookForDP ) {
-        median = calculateMedian( DPvalues, numSamples );
+    if ( lookForDP && (DPnoCall < numSamples ) ) {
+        median = calculateMedian( DPvalues, numSamples, DPnoCall );
         outputFile << "\t" << median;
     } else {
         outputFile << "\t" << MISSING_DATA_INDICATOR;
     }
     // median GQ:
-    if ( lookForGQ ) {
-        median = calculateMedian( GQvalues, numSamples );
+    if ( lookForGQ && (GQnoCall < numSamples) ) {
+        median = calculateMedian( GQvalues, numSamples, GQnoCall );
         outputFile << "\t" << median;
     } else {
         outputFile << "\t" << MISSING_DATA_INDICATOR;
@@ -569,16 +570,19 @@ void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  
 }
 
 
-void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference )
+void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
 {
     string oneLine, CHROM, POS, ID, REF, ALT, QUAL;
     long int dumCol, SNPcount = 0;
     bool keepThis, checkFormat = true, lookForDP, lookForGQ;
     int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1;
+	string discardedLinesFileName = vcfName + "_discardedLineNums.txt";
+	ofstream discardedLinesFile( discardedLinesFileName, ostream::out );
     // the latter ints are for parsing GT = genotype, DP = depth,
     // and GQ = quality sub-fields of the FORMAT column
     int formatOpsOrder[maxSubfieldsInFormat]; // for keeping track of how to parse FORMAT efficiently
-    
+	
+	discardedLinesFile << "VCFfileLinesNotUsed" << endl; // header row
     // work line by line:
     while ( getline( VCFfile, oneLine ) ) {
         SNPcount++; // counter of how many SNP lines have been processed
@@ -604,7 +608,9 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
             
             // add end of line (done with this line):
             outputFile << endl;
-        }
+		} else {
+			discardedLinesFile << VCFfileLineCount << endl;
+		}
         
         if ( numFormats == 1 ) {
             checkFormat = false; // not needed after first SNP
@@ -612,7 +618,8 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
 //        if ( SNPcount == 2 )
 //            exit(0);
     }
-    
+	
+	discardedLinesFile.close();
 }
 
 
@@ -819,7 +826,9 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
     }
     
     if ( !keepThis ) {
+#ifdef DEBUG
         cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
+#endif
     }
     
     return keepThis;

@@ -73,12 +73,12 @@ numFields=$(grep -v "##" $1 | head -n 1 | awk '{print NF}')
 printf "\nI found $numFields fields of data in VCF file $1\n\n"
 
 # do some checking against expected format:
-printf "\nVCF file format specification means that the VCF file should have"
+printf "\nVCF file format specification means that the VCF file should have\n"
 echo "a total number of fields equal to 9 + the number of distinct samples."
 echo "The first nine expected fields are:"
 printf "\t#CHROM  POS  ID  REF ALT  QUAL  FILTER  INFO  FORMAT\n"
-printf "This is based upon:\n\thttp://samtools.github.io/hts-specs/VCFv4.3.pdf\n\t(accessed 5/31/19)\n".
-echo "If your VCF differs from these expectations, then the program will NOT work."
+printf "\tThis is based upon:\n\thttp://samtools.github.io/hts-specs/VCFv4.3.pdf\n\t(accessed 5/31/19)\n"
+echo "\tIf your VCF differs from these expectations, then the program will NOT work."
 
 printf "\n\t"
 read -n 1 -s -r -p "*** Press any key to continue ***"
@@ -121,9 +121,14 @@ rm foofootmp
 echo "\tNumber of unique formats in VCF file: $numFormats"
 
 # call program:
-printf "\nNow invoking VCFtoSummStats with following command:\n\t"
+printf "\nAbout to invoke VCFtoSummStats with following command:\n\t"
 myCmd="./VCFtoSummStats -V $1 -P $2 -H $header -N $numSamples2 -n $numPopulations -F $numFields -f $numFormats -l $firstLine"
 echo "$myCmd"
+cmdFileName="${1}_CommandToVCFtoSummStats.txt"
+printf "\tThat command will also be stored for reference in the following file:\n\t${cmdFileName}\n\n"
+echo "$myCmd" > $cmdFileName
+printf "\tYou can re-use that command (without re-running this script) if\n\tyou need to re-run the program AND if nothing about your input\n\tfiles has changed.\n\n\tHere we go ...\n\n"
+exit 0;
 $myCmd
 
 # clean up:

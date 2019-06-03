@@ -23,7 +23,7 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookF
 
 void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  );
 
-void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference );
+void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName );
 
 void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, unsigned long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, int& firstDataLineNumber, string& vcfName );
 
