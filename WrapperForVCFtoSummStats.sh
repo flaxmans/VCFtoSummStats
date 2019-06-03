@@ -10,14 +10,14 @@ TARGET=VCFtoSummStats;
 errMsg="\nPlease check name spelling and path, and include extension in filename.\nThe call to this script should be:\n\n\tsh WrapperForVCFtoSummStats.sh VCFfileName PopulationFileName\n\nExiting!\n"
 if [ ! -f "$1" ]
 then
-	echo "\nError! file '$1' not found!"
-	echo "$errMsg"
+	printf "\nError! file '$1' not found!\n"
+	printf "$errMsg \n"
 	exit -1
 fi
 if [ ! -f "$2" ]
 then
 	echo "Error! file '$2' not found!  Please check name spelling and path!"
-	echo "$errMsg"
+	printf "$errMsg \n"
 	exit -1
 fi
 # delete the following if the executable is installed in the PATH
@@ -60,24 +60,24 @@ else
     echo "mandates that all sample IDs are unique."
 fi
 # calculate number of populations present in population file
-numPopulations=$(cut -f2 $usefile | sort | uniq | wc -l | awk '{print $1}')
+numPopulations=$(awk '{ print $2 }' $usefile | sort | uniq | wc -l | awk '{print $1}')
 echo "I found $numPopulations populations in the population file $2."
 # create file of unique population names:
-cut -f2 $usefile | sort | uniq > UniquePopFileTemp.txt
+awk '{ print $2 }' $usefile | sort | uniq > UniquePopFileTemp.txt
 
 
 # some info on VCF file:
 # calculate number of fields of data:
 # this should get the header row that follows the initial rows of meta-data
 numFields=$(grep -v "##" $1 | head -n 1 | awk '{print NF}')
-echo "\nI found $numFields fields of data in VCF file $1\n"
+printf "\nI found $numFields fields of data in VCF file $1\n\n"
 
 # do some checking against expected format:
-echo "\nVCF file format specification means that the VCF file should have"
+printf "\nVCF file format specification means that the VCF file should have"
 echo "a total number of fields equal to 9 + the number of distinct samples."
 echo "The first nine expected fields are:"
-echo "\t#CHROM  POS  ID  REF ALT  QUAL  FILTER  INFO  FORMAT"
-echo "This is based upon:\n\thttp://samtools.github.io/hts-specs/VCFv4.3.pdf\n\t(accessed 5/31/19)".
+printf "\t#CHROM  POS  ID  REF ALT  QUAL  FILTER  INFO  FORMAT\n"
+printf "This is based upon:\n\thttp://samtools.github.io/hts-specs/VCFv4.3.pdf\n\t(accessed 5/31/19)\n".
 echo "If your VCF differs from these expectations, then the program will NOT work."
 
 printf "\n\t"
@@ -89,9 +89,9 @@ expectedCols=$((9+$numSamples2))
 if [ ! $expectedCols -eq $numFields ]
 then
     echo "** Error! **\n\tNumber of fields found in $1 "
-    echo "\tdoes not match expected number of fields based upon"
-    echo "\t9 + number of samples found in $2."
-    echo "\t ** aborting execution ** "
+    printf "\tdoes not match expected number of fields based upon\n"
+    printf "\t9 + number of samples found in $2.\n"
+    printf "\t ** aborting execution ** \n"
     # clean up:
     rm UniquePopFileTemp.txt
     if [ -f "fooDataTmp" ]
@@ -100,9 +100,9 @@ then
     fi
     exit -1
 else
-    echo "\n\n\tNumber of fields found in $1 "
-    echo "\tmatches expected number of fields based upon"
-    echo "\t9 + number of samples found in $2."
+    printf "\n\n\tNumber of fields found in $1 \n"
+    printf "\tmatches expected number of fields based upon\n"
+    printf "\t9 + number of samples found in $2.\n"
 fi
 
 # count maximum line length:
@@ -112,9 +112,9 @@ fi
 FORMATCOL=9
 firstLine=$(awk ' { if ( $1 == "#CHROM" )  { print NR; exit }} ' $1)
 firstLine=$(($firstLine+1))
-echo "\nFirst line of actual data in VCF file is line no. $firstLine"
+printf "\nFirst line of actual data in VCF file is line no. $firstLine\n"
 # get format field:
-echo "\nChecking for consistency of FORMAT (column no. $FORMATCOL) in VCF file.\n\t... This could take a few minutes ..."
+printf "\nChecking for consistency of FORMAT (column no. $FORMATCOL) in VCF file.\n\t... This could take a few minutes ...\n"
 awk -v var="$firstLine" -v col="$FORMATCOL" '{if (NR >= var) print $col}' $1 > foofootmp
 numFormats=$(uniq foofootmp | wc -l | awk '{ print $1 }')
 rm foofootmp
