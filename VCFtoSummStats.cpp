@@ -298,7 +298,7 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
             if ( operationCode == GT_OPS_CODE ) {
                 // parse the genotype data and add to correct population
                 allele1 = token.substr(0,1);
-                allele2 = token.substr(2,3);
+                allele2 = token.substr(2,1);
                 
                 // considering the diploid genotype, there are 9 options:
                 if ( allele1 == "0" ) {
