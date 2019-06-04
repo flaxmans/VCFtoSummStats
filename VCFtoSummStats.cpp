@@ -701,7 +701,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 #endif
 	if ( !maxCharSet ) {
 		maxCharPerLine = static_cast<unsigned long int>(testString.max_size());
-		cout << "\nWarning: maxCharPerLine (maximum line length) is not set.  Using default of " << maxCharPerLine << endl;
+		//cout << "\nWarning: maxCharPerLine (maximum line length) is not set.  Using default of " << maxCharPerLine << endl;
     } else if ( maxCharPerLine > testString.max_size() ) {
         cout << "\nError!  maxCharPerLine in your VCFfile is " << maxCharPerLine << ",\n";
         cout << "but max string length on this system is " << testString.max_size() << endl;
@@ -835,7 +835,7 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
 
 void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, map<string, int> mapOfPopulations )
 {
-    string filename = vcfName + "_Unfiltered_Summary_" + ".tsv";
+    string filename = vcfName + "_Unfiltered_Summary" + ".tsv";
     string popHeader, popName, colHeaders;
     int popIndex;
     map<string, int>::const_iterator it = mapOfPopulations.begin();

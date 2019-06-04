@@ -89,7 +89,7 @@ echo "a total number of fields equal to 9 + the number of distinct samples."
 echo "The first nine expected fields are:"
 printf "\t#CHROM  POS  ID  REF ALT  QUAL  FILTER  INFO  FORMAT\n"
 printf "\tThis is based upon:\n\thttp://samtools.github.io/hts-specs/VCFv4.3.pdf\n\t(accessed 5/31/19)\n"
-echo "\tIf your VCF differs from these expectations, then the program will NOT work."
+printf "\tIf your VCF differs from these expectations, then the program will NOT work.\n"
 
 printf "\n\t"
 read -n 1 -s -r -p "*** Press any key to continue ***"
@@ -128,7 +128,7 @@ printf "\nChecking for consistency of FORMAT (column no. $FORMATCOL) in VCF file
 awk -v var="$firstLine" -v col="$FORMATCOL" '{if (NR >= var) print $col}' $1 > foofootmp
 numFormats=$(uniq foofootmp | wc -l | awk '{ print $1 }')
 rm foofootmp
-echo "\tNumber of unique formats in VCF file: $numFormats"
+printf "\tNumber of unique formats in VCF file: $numFormats\n"
 
 # build command for calling program:
 printf "\nAbout to invoke VCFtoSummStats with following command:\n\t"
@@ -139,8 +139,13 @@ printf "\tThat command will also be stored for reference in the following file:\
 echo "$myCmd" > $cmdFileName
 printf "\tYou can re-use that command (without re-running this script) if\n\tyou need to re-run the program AND if nothing about your input\n\tfiles has changed.\n\n\tHere we go ...\n\n"
 
+
+echo $myCmd
+
 # run program:
 $myCmd
+
+
 
 # clean up:
 if [ -f "fooDataTmp" ]

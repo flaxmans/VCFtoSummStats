@@ -4,7 +4,7 @@ TARGET = VCFtoSummStats
 CC = g++
 
 # conditional compiling:
-DEBUG_MODE?=Y
+DEBUG_MODE?=n
 ifeq "$(DEBUG_MODE)" "Y" 
         CCFLAGS=-g -DDEBUG
 else 
