@@ -28,6 +28,17 @@ then
 	wait
 fi
 
+# get path to VCF file from input string:
+pathToVCF=$(echo $1 | rev | awk -F '/' '{ $1=""; print $0 }' | rev | tr ' ' '/')
+pathLength=${#pathToVCF}
+if [ $pathLength -eq 0 ]
+then
+    printf "\nI interpret that the data files are in the same directory as this script.\n"
+    pathToVCF="./"
+else
+    printf "\nI interpret this as the path to the data files: $pathToVCF\n"
+fi
+
 # some info on populations and samples:
 # population file: does it have a header row?
 printf "\nDoes the population file $2 have a header row? (Y/n):  "
@@ -47,8 +58,8 @@ else
 	exit -1
 fi
 # calculate number of samples listed in population file
-numSamples1=$(wc -l $usefile | awk '{print $1}')
-numSamples2=$(cut -f1 $usefile | sort | uniq | wc -l | awk '{print $1}')
+numSamples1=$(awk '{print $1}' $usefile | grep -v "^$" | wc -w | awk '{print $1}')
+numSamples2=$(awk '{print $1}' $usefile | grep -v "^$" | sort | uniq | wc -l | awk '{print $1}')
 if [ $numSamples1 -eq $numSamples2 ]
 then
 	echo "I found $numSamples1 samples in the population file $2."
@@ -60,10 +71,10 @@ else
     echo "mandates that all sample IDs are unique."
 fi
 # calculate number of populations present in population file
-numPopulations=$(awk '{ print $2 }' $usefile | sort | uniq | wc -l | awk '{print $1}')
+numPopulations=$(awk '{ print $2 }' $usefile | grep -v "^$" | sort | uniq | wc -l | awk '{print $1}')
 echo "I found $numPopulations populations in the population file $2."
 # create file of unique population names:
-awk '{ print $2 }' $usefile | sort | uniq > UniquePopFileTemp.txt
+awk '{ print $2 }' $usefile | grep -v "^$" | sort | uniq > ${2}_UniquePopFile.txt
 
 
 # some info on VCF file:
@@ -93,7 +104,6 @@ then
     printf "\t9 + number of samples found in $2.\n"
     printf "\t ** aborting execution ** \n"
     # clean up:
-    rm UniquePopFileTemp.txt
     if [ -f "fooDataTmp" ]
     then
         rm fooDataTmp
@@ -120,7 +130,7 @@ numFormats=$(uniq foofootmp | wc -l | awk '{ print $1 }')
 rm foofootmp
 echo "\tNumber of unique formats in VCF file: $numFormats"
 
-# call program:
+# build command for calling program:
 printf "\nAbout to invoke VCFtoSummStats with following command:\n\t"
 myCmd="./VCFtoSummStats -V $1 -P $2 -H $header -N $numSamples2 -n $numPopulations -F $numFields -f $numFormats -l $firstLine"
 echo "$myCmd"
@@ -128,11 +138,11 @@ cmdFileName="${1}_CommandToVCFtoSummStats.txt"
 printf "\tThat command will also be stored for reference in the following file:\n\t${cmdFileName}\n\n"
 echo "$myCmd" > $cmdFileName
 printf "\tYou can re-use that command (without re-running this script) if\n\tyou need to re-run the program AND if nothing about your input\n\tfiles has changed.\n\n\tHere we go ...\n\n"
-exit 0;
+
+# run program:
 $myCmd
 
 # clean up:
-# rm UniquePopFileTemp.txt
 if [ -f "fooDataTmp" ]
 then
     rm fooDataTmp

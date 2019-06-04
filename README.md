@@ -14,11 +14,11 @@ You can build (compile) the program from the UNIX/Linux-style command line by
 
 ## Running the program
 
-Use of the helper wrapper script is strongly recommended.  For example, a test case can be invoked in the UNIX/Linux-like terminal like this:
+Use of the helper wrapper script is REQUIRED (at least once), because it creates the input parameters (arguments) to the program, as well as a necessary simple file with some population metadata.  For example, a test case can be invoked in the UNIX/Linux-like terminal like this:
 
-`sh WrapperForVCFtoSummStats.sh ExampleDataFiles/VCFtenLines.txt ExampleDataFiles/popMap.txt`
+`bash WrapperForVCFtoSummStats.sh path/to/VCFfile.vcf path/to/samplesAndPopulations.txt`
 
-where `VCFtenLines.txt` is a small test snippet of a VCF file containing one header row and 9 SNP rows, and `popMap.txt` is a two-column, plain-text datafile, in which the first column is the sample IDs (corresponding to columns ID's of sample data in the VCF file) and the second column is a population designation.
+where `VCFfile.vcf`` is your VCF file, and `samplesAndPopulations.txt` is a two-column, white-space delimited, plain-text datafile, in which the first column is the sample IDs (corresponding to columns ID's of sample data in the VCF file) and the second column is a population designation for each sample.
 
 ## Assumptions about VCF file format:
 The program assumes that the VCF file supplied to the program follows the VCF v4.3 format guidelines as found at [http://samtools.github.io/hts-specs/VCFv4.3.pdf](http://samtools.github.io/hts-specs/VCFv4.3.pdf), accessed 5/31/19.

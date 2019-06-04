@@ -1,0 +1,32 @@
+c511 cydno
+c512 cydno
+c513 cydno
+c514 cydno
+c515 cydno
+c563 cydno
+c614 cydno
+c630 cydno
+c639 cydno
+c640 cydno
+m523 melpomene
+m524 melpomene
+
+m525 melpomene
+m589 melpomene
+m675 melpomene
+m676 melpomene
+m682 melpomene
+m683 melpomene
+m687 melpomene
+m689 melpomene
+p516 pachinus
+p517 pachinus
+p518 pachinus
+p519 pachinus
+p520 pachinus
+p591 pachinus
+p596 pachinus
+p690 pachinus
+p694 pachinus
+p696 pachinus
+

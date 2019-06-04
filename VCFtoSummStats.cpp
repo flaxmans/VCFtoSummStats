@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     int maxSubfieldsInFormat = MAX_SUBFIELDS_IN_FORMAT_DEFAULT;
     unsigned long int maxCharPerLine, VCFfileLineCount = 0;
 	bool popFileHeader;
-    string formatDelim = FORMAT_DELIM_DEFAULT, vcfName;
+    string formatDelim = FORMAT_DELIM_DEFAULT, vcfName, popFileName;
     // data file streams:
     ifstream VCFfile, PopulationFile;
     ofstream outputFile;
@@ -54,13 +54,13 @@ int main(int argc, char *argv[])
 #endif
 	
 	// parse command line options and open file streams for reading:
-    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim, maxSubfieldsInFormat, firstDataLineNumber, vcfName );
+    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim, maxSubfieldsInFormat, firstDataLineNumber, vcfName, popFileName );
 	
     // create cross referencing for population membership by sample:
     map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
     map<string, int> mapOfSamples;          // key = sample ID, value = integer representing population index
     int numSamplesPerPopulation[numPopulations];    // for later frequency calculations
-    makePopulationMap( mapOfPopulations, numPopulations );
+    makePopulationMap( mapOfPopulations, numPopulations, popFileName );
     assignPopIndexToSamples( mapOfPopulations, mapOfSamples, PopulationFile, numSamplesPerPopulation, numPopulations, numSamples  );
     
     // assign each sample column in the VCF to a population:
@@ -545,12 +545,13 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookF
 
 
 
-void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  )
+void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations, string popFileName )
 {
     // helpful code for working with maps borrowed from:
     // https://thispointer.com/stdmap-tutorial-part-1-usage-detail-with-examples/
     
-    ifstream uniquePopFile( "UniquePopFileTemp.txt" );
+    string uniquePopFileName = popFileName + "_UniquePopFile.txt";
+    ifstream uniquePopFile( uniquePopFileName );
     string popID;
     int index = 0;
     
@@ -561,12 +562,10 @@ void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations  
     
     uniquePopFile.close();
     
-#ifdef DEBUG
-        if ( index != numPopulations ) {
-            cout << "\nError!  numPopulations (" << numPopulations << ") != number of keys (" << index << ") in mapOfPopulations!\n\tExiting!\n\n";
-            exit(-1);
-        }
-#endif
+    if ( index != numPopulations ) {
+        cout << "\nError!  numPopulations (" << numPopulations << ") != number of keys (" << index << ") in mapOfPopulations!\n\tExiting!\n\n";
+        exit(-1);
+    }
 }
 
 
@@ -623,7 +622,7 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
 }
 
 
-void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, unsigned long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, int& firstDataLineNumber, string& vcfName )
+void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, unsigned long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, int& firstDataLineNumber, string& vcfName, string& popFileName )
 {
 	const int expectedMinArgNum = 2;
 	string progname = argv[0];
@@ -634,8 +633,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 		cout << message;
 		exit(-1);
 	}
-	
-	string popFileName;
+
 	// parse command line options:
 	int flag;
     while ((flag = getopt(argc, argv, "V:P:L:H:N:n:F:f:D:S:l:")) != -1) {
