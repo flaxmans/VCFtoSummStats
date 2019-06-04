@@ -139,8 +139,8 @@ printf "\tThat command will also be stored for reference in the following file:\
 echo "$myCmd" > $cmdFileName
 printf "\tYou can re-use that command (without re-running this script) if\n\tyou need to re-run the program AND if nothing about your input\n\tfiles has changed.\n\n\tHere we go ...\n\n"
 
-
-echo $myCmd
+# echo to user:
+printf "$myCmd\n\n"
 
 # run program:
 $myCmd

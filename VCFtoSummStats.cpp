@@ -437,8 +437,8 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
     outputFile << "\t" << homoRefCount << "\t" << hetCount << "\t" << homoAltCount;
     double freq;
     for ( int i = 0; i < numPopulations; i++ ) {
-        freq = static_cast<double>( altAlleleCounts[i] ) / static_cast<double>( validSampleCounts [i] );
-        outputFile << "\t" << freq;
+        freq = static_cast<double>( altAlleleCounts[i] ) / static_cast<double>( validSampleCounts[i] );
+        outputFile << "\t" << freq << "\t" << validSampleCounts[i];
     }
     
     // outputFile << endl;  not needed here; this is done in parseActualData()
@@ -836,7 +836,7 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
 void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, map<string, int> mapOfPopulations )
 {
     string filename = vcfName + "_Unfiltered_Summary" + ".tsv";
-    string popHeader, popName, colHeaders;
+    string popHeader, popName, colHeaders, alleleCountHeader;
     int popIndex;
     map<string, int>::const_iterator it = mapOfPopulations.begin();
     
@@ -853,7 +853,8 @@ void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, 
     
     
     // loop over populations:
-    popHeader = "\tALT_SNP_FREQ";
+    popHeader = "\tALT_SNP_freq_";
+    alleleCountHeader = "\trawAlleleCount_";
     for ( int i = 0; i < numPopulations; i++ ) {
         popName = it->first;
         popIndex = it->second;
@@ -861,7 +862,7 @@ void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, 
             cout << "\nError in setUpOutputFile():\n\tmap isn't ordered as you expect!\n\tAborting ... \n\n";
             exit(-4);
         }
-        outputFile << popHeader << popName;
+        outputFile << popHeader << popName << alleleCountHeader << popName;
         it++;
     }
     outputFile << endl;
