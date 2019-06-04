@@ -18,9 +18,9 @@ Use of the helper wrapper script is REQUIRED (at least once), because it creates
 
 `bash WrapperForVCFtoSummStats.sh path/to/VCFfile.vcf path/to/samplesAndPopulations.txt`
 
-where `VCFfile.vcf`` is your VCF file, and `samplesAndPopulations.txt` is a two-column, white-space delimited, plain-text datafile, in which the first column is the sample IDs (corresponding to columns ID's of sample data in the VCF file) and the second column is a population designation for each sample.
+where `VCFfile.vcf` is your VCF file, and `samplesAndPopulations.txt` is a two-column, white-space delimited, plain-text datafile, in which the first column is the sample IDs (corresponding to columns ID's of sample data in the VCF file) and the second column is a population designation for each sample.
 
-## Assumptions about VCF file format:
+## Assumptions about VCF file format
 The program assumes that the VCF file supplied to the program follows the VCF v4.3 format guidelines as found at [http://samtools.github.io/hts-specs/VCFv4.3.pdf](http://samtools.github.io/hts-specs/VCFv4.3.pdf), accessed 5/31/19.
 
 It does do some checking to make sure that the columns/fields are as expected.
