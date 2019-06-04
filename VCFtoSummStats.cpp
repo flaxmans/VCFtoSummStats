@@ -583,12 +583,14 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
 	
 	discardedLinesFile << "VCFfileLinesNotUsed" << endl; // header row
     // work line by line:
+    stringstream lineStream( "", ios_base::in | ios_base::out );
     while ( getline( VCFfile, oneLine ) ) {
         SNPcount++; // counter of how many SNP lines have been processed
         VCFfileLineCount++; // counter of how many LINES of VCF file have been processed
         
         // turn each line into a string stream for easy parsing by whitespace:
-        stringstream lineStream( oneLine );
+        lineStream.clear();
+        lineStream.str( oneLine );
         
         // work with meta-col data:
         keepThis = parseMetaColData( lineStream, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, CHROM, POS, ID, REF, ALT, QUAL);
