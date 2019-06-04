@@ -278,8 +278,9 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
     // loop over all columns of data:
     int counter = 0, operationCode, popIndex;
     string currentSample, token;
-    size_t pos;
-    string allele1, allele2, checkGTsep = "/";
+    size_t pos, strStart[numTokensInFormat], strLen[numTokensInFormat];
+    string checkGTsep = "/";
+    string allele1, allele2;
 	int DPnoCall = 0, GQnoCall = 0;
     while ( lineStream >> currentSample ) {
         // currentSample is a string with format given by FORMAT
@@ -287,12 +288,19 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
         // add a delimiter for easier parsing of final subfield in loop:
         currentSample = currentSample + formatDelim;
         popIndex = populationReference[ counter ];
+        pos = 0;
+        for ( int i = 0; i < numTokensInFormat; i++ ) {
+            strStart[i] = pos;
+            pos = currentSample.find( formatDelim, pos );  // next occurrence of delimiter
+            strLen[i] = pos - strStart[i]; // length of this field
+            pos++; // increment for next
+        }
         
         // parse the current sample:
         for ( int i = 0; i < numTokensInFormat; i++ ) {
             // get the substring:
-            pos = currentSample.find( formatDelim );
-            token = currentSample.substr(0, pos);
+            //pos = currentSample.find( formatDelim ); // old way replaced by for loop above
+            token = currentSample.substr(strStart[i], strLen[i]);
             // get operation code:
             operationCode = formatOpsOrder[i];
             if ( operationCode == GT_OPS_CODE ) {
@@ -398,7 +406,7 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
             // otherwise just skip it
             
             // delete the substring
-            currentSample.erase(0, pos + formatDelim.length());
+            //currentSample.erase(0, pos + formatDelim.length()); // old way replaced by prior for loop
         }  // end of loop over tokens in sample
         
         counter++;  // keep track of how many samples have been processed
