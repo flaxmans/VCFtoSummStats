@@ -23,7 +23,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <map>
-#include <sstream>
+//#include <sstream>
 #include "VCFtoSummStats.hpp"
 #include <algorithm>
 using namespace std;
@@ -257,7 +257,7 @@ inline int calculateMedian( int values[], int n, int ignoreFirst )
 }
 
 
-void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, string formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
+void calculateSummaryStats( ifstream& VCFfile, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, string formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
 {
     int homoRefCount = 0, homoAltCount = 0, hetCount = 0, altAlleleCounts[numPopulations];
     int validSampleCounts[numPopulations], DPvalues[numSamples], GQvalues[numSamples];
@@ -282,11 +282,12 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
     string checkGTsep = "/";
     string allele1, allele2;
 	int DPnoCall = 0, GQnoCall = 0;
-    while ( lineStream >> currentSample ) {
-        // currentSample is a string with format given by FORMAT
-        
+    for ( int i = 0; i < numSamples; i++ ) {
+    //while ( lineStream >> currentSample ) {
+        VCFfile >> currentSample;
+        // currentSample should be a string with format given by FORMAT
         // add a delimiter for easier parsing of final subfield in loop:
-        currentSample = currentSample + formatDelim;
+        //currentSample = currentSample + formatDelim;
         popIndex = populationReference[ counter ];
         pos = 0;
         for ( int i = 0; i < numTokensInFormat; i++ ) {
@@ -410,11 +411,11 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
         }  // end of loop over tokens in sample
         
         counter++;  // keep track of how many samples have been processed
-    }  // end of while() loop over lineStream
+    }  // end of for() loop over numSamples; used to be while() loop over lineStream
     
     // error checking:
     if ( counter != numSamples ) {
-        cout << "\nError in calculateSummaryStats():\n\tlineStream did not give numSamples number of loops.\n\t";
+        cout << "\nError in calculateSummaryStats():\n\tline parsing did not give numSamples number of loops.\n\t";
         cout << "counter = " << counter << ", but numSamples = " << numSamples;
         cout << "\n\tThis suggests inconsistencies in VCF file construction\n\twith uneven numbers of samples per row";
         cout << "\n\tAborting ... ";
@@ -579,29 +580,31 @@ void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations, 
 
 void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
 {
-    string oneLine, CHROM, POS, ID, REF, ALT, QUAL;
+    string CHROM, POS, ID, REF, ALT, QUAL;
     long int dumCol, SNPcount = 0;
     bool keepThis, checkFormat = true, lookForDP, lookForGQ;
     int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1;
 	string discardedLinesFileName = vcfName + "_discardedLineNums.txt";
 	ofstream discardedLinesFile( discardedLinesFileName, ostream::out );
+    // string oneLine; // old way using linestream
     // the latter ints are for parsing GT = genotype, DP = depth,
     // and GQ = quality sub-fields of the FORMAT column
     int formatOpsOrder[maxSubfieldsInFormat]; // for keeping track of how to parse FORMAT efficiently
 	
 	discardedLinesFile << "VCFfileLinesNotUsed" << endl; // header row
     // work line by line:
-    stringstream lineStream( "", ios_base::in | ios_base::out );
-    while ( getline( VCFfile, oneLine ) ) {
+    // stringstream lineStream( "", ios_base::in | ios_base::out ); old way
+    // used to be while( getline ... )
+    while ( !VCFfile.eof() ) {
         SNPcount++; // counter of how many SNP lines have been processed
         VCFfileLineCount++; // counter of how many LINES of VCF file have been processed
         
         // turn each line into a string stream for easy parsing by whitespace:
-        lineStream.clear();
-        lineStream.str( oneLine );
+        // lineStream.clear();
+        // lineStream.str( oneLine );
         
         // work with meta-col data:
-        keepThis = parseMetaColData( lineStream, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, CHROM, POS, ID, REF, ALT, QUAL);
+        keepThis = parseMetaColData( VCFfile, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, CHROM, POS, ID, REF, ALT, QUAL);
         
         if ( checkFormat ) {
             determineFormatOpsOrder( numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, formatOpsOrder, maxSubfieldsInFormat );
@@ -612,13 +615,14 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
             // print out meta fields:
             outputFile << VCFfileLineCount << "\t" << CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << "\t" << QUAL;
             
-            // let's calculate and store data using lineStream:
-            calculateSummaryStats( lineStream, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference );
+            // let's calculate and store data for one line, i.e., one SNP at a time:
+            calculateSummaryStats( VCFfile, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference );
             
             // add end of line (done with this line):
             outputFile << endl;
 		} else {
 			discardedLinesFile << VCFfileLineCount << endl;
+            VCFfile.ignore(unsigned(-1), '\n');
 		}
         
         if ( numFormats == 1 ) {
@@ -743,7 +747,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 }
 
 
-bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, string formatDelim, string& CHROM, string& POS, string& ID, string& REF, string& ALT, string& QUAL )
+bool parseMetaColData( ifstream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, string formatDelim, string& CHROM, string& POS, string& ID, string& REF, string& ALT, string& QUAL )
 {
     int subfieldCount;  // field counter, starting with index of 1
     string buffer, myDelim = formatDelim, token;
@@ -754,7 +758,7 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
     
     // loop over fields:
     for ( int col = 1; col <= NUM_META_COLS; col++ ) {
-        lineStream >> buffer;
+        VCFfile >> buffer;
         switch ( col ) {
             case 1:
                 CHROM = buffer;
