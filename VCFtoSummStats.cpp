@@ -796,7 +796,7 @@ bool parseMetaColData( ifstream& VCFfile, long int SNPcount, bool checkFormat, i
     }
     
     // status report:
-    if ( SNPcount % 5000 == 0 ) {
+    if ( SNPcount % 10000 == 0 ) {
         cout << "\nSNP lines processed so far = " << SNPcount << "; Current SNP is:\n\t";
         cout <<  CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << endl;
     }
