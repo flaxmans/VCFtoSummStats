@@ -216,7 +216,7 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
                 if ( count < (numSamples - 1) )
                     VCFfile >> sampleID;
                 else
-                    VCFfile.ignore(); // don't yet read in first entry of next line, but set the stage to
+                    VCFfile.ignore(unsigned(-1), '\n'); // don't yet read in first entry of next line, but set the stage to
             }
             
 #ifdef DEBUG
@@ -318,10 +318,10 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
                         validSampleCounts[popIndex] += 2; // diploid
                         altAlleleCounts[popIndex]++; // one alt allele
                     } else {
-#ifdef DEBUG
-                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
-                        cout << ", sample number " << (counter + 1);
-#endif
+//#ifdef DEBUG
+//                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
+//                        cout << ", sample number " << (counter + 1);
+//#endif
                         validSampleCounts[popIndex]++;
                     }
                 } else if ( allele1 == "1" ) {
@@ -334,27 +334,27 @@ void calculateSummaryStats( stringstream& lineStream, ofstream& outputFile, int 
                         validSampleCounts[popIndex] += 2; // diploid
                         altAlleleCounts[popIndex] += 2; // two alt alleles
                     } else {
-#ifdef DEBUG
-                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
-                        cout << ", sample number " << (counter + 1);
-#endif
+//#ifdef DEBUG
+//                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
+//                        cout << ", sample number " << (counter + 1);
+//#endif
                         validSampleCounts[popIndex]++;
                         altAlleleCounts[popIndex]++; // one alt allele
                     }
                 } else {
-#ifdef DEBUG
-                    cout << "\nWarning!!\n\t: Allele1 not called in VCF line " << VCFfileLineCount;
-                    cout << ", sample number " << (counter + 1);
-#endif
+//#ifdef DEBUG
+//                    cout << "\nWarning!!\n\t: Allele1 not called in VCF line " << VCFfileLineCount;
+//                    cout << ", sample number " << (counter + 1);
+//#endif
                     if ( allele2 == "0" || allele2 == "1" ) {
                         validSampleCounts[popIndex] += 1; // diploid
                         if ( allele2 == "1" )
                             altAlleleCounts[popIndex]++; // one alt allele
                     } else {
-#ifdef DEBUG
-                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
-                        cout << ", sample number " << (counter + 1);
-#endif
+//#ifdef DEBUG
+//                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
+//                        cout << ", sample number " << (counter + 1);
+//#endif
                     }
                 }
                 
@@ -802,7 +802,8 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
         // string splitting, with thanks to:
         // https://stackoverflow.com/questions/14265581/parse-split-a-string-in-c-using-string-delimiter-standard-c
 #ifdef DEBUG
-            cout << "** Parsing FORMAT **\n\tsubfieldcount\tpos\ttoken\n";
+        cout << "** Parsing FORMAT **\n\tsubfieldcount\tpos\ttoken\n" << FORMAT << endl;
+        cout << "CHROM: " << CHROM << ", INFO: " << INFO << endl;
 #endif
         while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
             subfieldCount++;
@@ -834,9 +835,9 @@ bool parseMetaColData( stringstream& lineStream, long int SNPcount, bool checkFo
     }
     
     if ( !keepThis ) {
-#ifdef DEBUG
-        cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
-#endif
+//#ifdef DEBUG
+//        cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
+//#endif
     }
     
     return keepThis;
