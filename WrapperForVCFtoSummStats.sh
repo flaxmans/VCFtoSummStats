@@ -41,8 +41,18 @@ fi
 
 # some info on populations and samples:
 # population file: does it have a header row?
-printf "\nDoes the population file $2 have a header row? (Y/n):  "
-read headers
+#printf "\nDoes the population file $2 have a header row? (Y/n):  "
+#read headers
+
+x="foo"
+if [ -z "${3+x}" ]
+then
+    headers="n"
+else
+    headers=$3
+fi
+
+
 echo " "
 if [ "$headers" == "y" ] || [ "$headers" == "Y" ]
 then
@@ -92,17 +102,19 @@ printf "\tThis is based upon:\n\thttp://samtools.github.io/hts-specs/VCFv4.3.pdf
 printf "\tIf your VCF differs from these expectations, then the program will NOT work.\n"
 
 printf "\n\t"
-read -n 1 -s -r -p "*** Press any key to continue ***"
+# read -n 1 -s -r -p "*** Press any key to continue ***"
 # thanks to https://unix.stackexchange.com/questions/293940/bash-how-can-i-make-press-any-key-to-continue
 # for read command
 
 expectedCols=$((9+$numSamples2))
 if [ ! $expectedCols -eq $numFields ]
 then
-    echo "** Error! **\n\tNumber of fields found in $1 "
+    printf "** Error! **\n\tNumber of fields found in $1 \n"
     printf "\tdoes not match expected number of fields based upon\n"
     printf "\t9 + number of samples found in $2.\n"
-    printf "\t ** aborting execution ** \n"
+    printf "\tIf your popFile ($2)\n\thas a header row, call this script"
+    printf "with the third argument as 'Y'\n"
+    printf "\n\t ** Aborting execution ** \n\n"
     # clean up:
     if [ -f "fooDataTmp" ]
     then
