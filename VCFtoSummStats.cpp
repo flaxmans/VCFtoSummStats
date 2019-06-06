@@ -582,6 +582,7 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
 {
     string CHROM, POS, ID, REF, ALT, QUAL;
     long int dumCol, SNPcount = 0;
+    char dummyChar;
     bool keepThis, checkFormat = true, lookForDP, lookForGQ;
     int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1;
 	string discardedLinesFileName = vcfName + "_discardedLineNums.txt";
@@ -595,7 +596,8 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
     // work line by line:
     // stringstream lineStream( "", ios_base::in | ios_base::out ); old way
     // used to be while( getline ... )
-    while ( !VCFfile.eof() ) {
+    while ( VCFfile.get( dummyChar ) ) {
+        VCFfile.putback( dummyChar ); // replace the one that get() got
         SNPcount++; // counter of how many SNP lines have been processed
         VCFfileLineCount++; // counter of how many LINES of VCF file have been processed
         
@@ -622,8 +624,9 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
             outputFile << endl;
 		} else {
 			discardedLinesFile << VCFfileLineCount << endl;
-            VCFfile.ignore(unsigned(-1), '\n');
 		}
+        
+        VCFfile.ignore(unsigned(-1), '\n'); // go to end of line
         
         if ( numFormats == 1 ) {
             checkFormat = false; // not needed after first SNP
