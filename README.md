@@ -1,6 +1,6 @@
 # VCFtoSummStats
 
-A tool for generating a "tidy", plain-text file of allele frequencies from a VCF.
+A tool for generating a "tidy", plain-text file of SNP summaries from a VCF.
 
 ## Building the program
 
