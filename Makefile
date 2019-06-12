@@ -2,6 +2,7 @@
 
 TARGET = VCFtoSummStats
 CC = g++
+LFLAGS = -lboost_iostreams
 
 # conditional compiling:
 DEBUG_MODE?=n
@@ -16,7 +17,7 @@ all: ${TARGET}
 
 # rule for build:
 ${TARGET}: ${TARGET}.cpp ${TARGET}.hpp
-	${CC} ${TARGET}.cpp ${CCFLAGS} -o ${TARGET}
+	${CC} ${CCFLAGS} ${TARGET}.cpp ${LFLAGS} -o ${TARGET}
 
 # rule for cleaning up everything:
 clean:

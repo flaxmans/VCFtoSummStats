@@ -25,9 +25,16 @@
 #include <map>
 //#include <sstream>
 #include "VCFtoSummStats.hpp"
-#include <algorithm>
+//#include <algorithm>
 #include <time.h>
 using namespace std;
+
+// for boost libraries for decompressing:
+#include <boost/iostreams/filtering_streambuf.hpp>
+//#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/filter/bzip2.hpp>
+
 
 // global variables
 const int NUM_META_COLS = 9;    // exected number of fields of data prior to samples in VCF
@@ -37,8 +44,14 @@ const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, SKIP_OPS_CODE = 3;
     // the latter are FORMAT parsing codes
 const string MISSING_DATA_INDICATOR = "NA";
 
+
 int main(int argc, char *argv[])
 {
+    // for filtering_streambuf:
+    using namespace boost::iostreams;
+    
+    clock_t startTime = clock();  // for tracking performance
+    
     // variables for command line arguments:
     int numSamples, numPopulations, numFields, numFormats, firstDataLineNumber = -1;
     int maxSubfieldsInFormat = MAX_SUBFIELDS_IN_FORMAT_DEFAULT;
@@ -46,8 +59,10 @@ int main(int argc, char *argv[])
 	bool popFileHeader;
     string formatDelim = FORMAT_DELIM_DEFAULT, vcfName, popFileName;
     // data file streams:
-    ifstream VCFfile, PopulationFile;
+    ifstream PopulationFile;    // population and sample designations
     ofstream outputFile;
+    filtering_streambuf<input> myVCFin;     // filter for VCF for dealing with compression
+    ifstream vcfUnfiltered; // needed to read in unfiltered
     
 #ifdef DEBUG
     string progname = argv[0];
@@ -58,7 +73,13 @@ int main(int argc, char *argv[])
     map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
     
 	// parse command line options and open file streams for reading:
-    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim, maxSubfieldsInFormat, vcfName, popFileName, mapOfPopulations );
+    parseCommandLineInput(argc, argv, PopulationFile, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim, maxSubfieldsInFormat, vcfName, popFileName, mapOfPopulations );
+    
+    createVCFfilter( myVCFin, vcfName, vcfUnfiltered );    // create filter
+    istream VCFfile( &myVCFin );            // create stream from filter
+    if ( !VCFfile.good() ) {
+        cerr << "\nError!  istream VCFfile is not good!\n";
+    }
 	
     // create cross referencing for population membership by sample:
     //map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
@@ -89,7 +110,6 @@ int main(int argc, char *argv[])
     parseActualData( VCFfile, numFormats, formatDelim, maxSubfieldsInFormat, VCFfileLineCount, outputFile, numSamples, numPopulations, populationReference, vcfName );
     
 	// cleanup: close files:
-	VCFfile.close();
 	PopulationFile.close();
     outputFile.close();
 	// free memory:
@@ -99,6 +119,10 @@ int main(int argc, char *argv[])
 #ifdef DEBUG
 		cout << "\nI ran!!\n\n";
 #endif
+    clock_t endTime = clock();
+    int minutes, seconds;
+    convertTimeInterval( (endTime - startTime), minutes, seconds);
+    cout << "\nIt took " << minutes << "min., " << seconds << "sec."  << " to run.\n";
 	
     return 0;
 }
@@ -158,11 +182,11 @@ void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, in
 }
 
 
-bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields, map<string, int> mapOfSamples, int *populationReference, unsigned long int& VCFfileLineCount, int& firstDataLineNumber )
+bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields, map<string, int> mapOfSamples, int *populationReference, unsigned long int& VCFfileLineCount, int& firstDataLineNumber )
 {
     int count = 0, firstSampleCol = (numFields - numSamples + 1);
     int popIndex;
-    string x;
+    string x = "hello";
     
 #ifdef DEBUG
         if ( firstSampleCol != 10 ) { // expectation based upon VCF format standards
@@ -171,6 +195,7 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
             exit(-2);
         }
 #endif
+    cout << "x is " << x << endl;
     
     // First: get to header row (past meta-rows) in VCF file:
     while ( VCFfile >> x ) {
@@ -242,6 +267,7 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
             cout << "I did NOT find a header row starting with #CHROM\n\t Aborting ...\n\n";
             exit(-2);
         }
+        
     }
     
     // execution should never reach here unless VCF file has ONLY ## rows
@@ -262,7 +288,7 @@ inline int calculateMedian( int values[], int n, int ignoreFirst )
 }
 
 
-void calculateSummaryStats( ifstream& VCFfile, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, string formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
+void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, string formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
 {
     int homoRefCount = 0, homoAltCount = 0, hetCount = 0, altAlleleCounts[numPopulations];
     int validSampleCounts[numPopulations], DPvalues[numSamples], GQvalues[numSamples];
@@ -475,6 +501,52 @@ inline void checkFormatToken( string token, int& GTtoken, int& DPtoken, int& GQt
 }
 
 
+void convertTimeInterval( clock_t myTimeInterval, int& minutes, int& seconds)
+{
+    double totalSeconds = ( static_cast<double>( myTimeInterval ) ) / static_cast<double>(CLOCKS_PER_SEC);
+    long unsigned int totSecondsInt = static_cast<long unsigned int>( totalSeconds );
+    
+    minutes = totSecondsInt / 60;
+    seconds = totSecondsInt % 60;
+}
+
+
+void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::input>& myVCFin, string vcfName, ifstream& vcfUnfiltered )
+{
+    // boost libraries for filtering_streambuf
+    using namespace boost::iostreams;
+    
+    // must open file:
+    vcfUnfiltered.open(vcfName, ios_base::in | ios_base::binary);
+    
+    
+    // find the file extension so we know what kind of filter, if any, to use:
+    string filext;
+    size_t dotPos, endPos;
+    dotPos = vcfName.find_last_of( "." );
+    endPos = vcfName.length();
+    filext = vcfName.substr( dotPos, (endPos - dotPos));
+#ifdef DEBUG
+    cout << "\nfile extension on VCF file is " << filext << endl;
+#endif
+    //Read from the first command line argument, assume it's gzipped
+    
+    // use file extension to build filter:
+    if ( filext == ".gz" ) {
+        myVCFin.push(gzip_decompressor());
+    } else if ( filext == ".bz2" ) {
+        myVCFin.push(bzip2_decompressor());
+    } else if ( filext != ".vcf" ) {
+        cerr << "\nError!!  File extension '" << filext << "' not recognized!" << endl;
+        cerr << "\n\tAborting ... \n\n";
+        exit(-1);
+    }
+    
+    // make the file the input
+    myVCFin.push( vcfUnfiltered );
+}
+
+
 void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, string formatDelim, int formatOpsOrder[], int maxSubfieldsInFormat )
 {
     // first a safety check:
@@ -584,7 +656,7 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookF
 //}
 
 
-void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
+void parseActualData(istream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
 {
     string CHROM, POS, ID, REF, ALT, QUAL;
     long int dumCol, SNPcount = 0;
@@ -645,7 +717,7 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
 }
 
 
-void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations )
+void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations )
 {
 	const int expectedMinArgNum = 4;
 	string progname = argv[0];
@@ -653,7 +725,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 	string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way (note flags -V and -P):\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
     bool numFormatsSet = false, vcfNameSet = false, popFileNameSet = false;
     if ( argc < expectedMinArgNum ) {
-		cout << message;
+		cerr << message;
 		exit(-1);
 	}
     // default or automatic values:
@@ -662,7 +734,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 
 	// parse command line options:
 	int flag;
-    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:l:")) != -1) {
+    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:")) != -1) {
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
@@ -702,11 +774,10 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
     
 	
 	// open file streams and check for errors:
-	VCFfile.open( vcfName );
-	if ( !VCFfile.good() ) {
-		cout << "\nError in parseCommandLineInput():\n\tVCF file name '" << vcfName << " 'not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
-		exit( -1 );
-	}
+//    if ( !VCFfile.good() ) {
+//        cout << "\nError in parseCommandLineInput():\n\tVCF file name '" << vcfName << " 'not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
+//        exit( -1 );
+//    }
 	PopulationFile.open( popFileName );
 	if ( !PopulationFile.good() ) {
 		cout << "\nError in parseCommandLineInput():\n\tPopulation file name '" << popFileName << "' not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
@@ -728,7 +799,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 }
 
 
-bool parseMetaColData( ifstream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, string formatDelim, string& CHROM, string& POS, string& ID, string& REF, string& ALT, string& QUAL )
+bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, string formatDelim, string& CHROM, string& POS, string& ID, string& REF, string& ALT, string& QUAL )
 {
     int subfieldCount;  // field counter, starting with index of 1
     string buffer, myDelim = formatDelim, token;
