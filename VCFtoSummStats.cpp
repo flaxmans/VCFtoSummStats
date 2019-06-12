@@ -26,6 +26,7 @@
 //#include <sstream>
 #include "VCFtoSummStats.hpp"
 #include <algorithm>
+#include <time.h>
 using namespace std;
 
 // global variables

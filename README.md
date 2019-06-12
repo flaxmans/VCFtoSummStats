@@ -14,11 +14,9 @@ You can build (compile) the program from the UNIX/Linux-style command line by
 
 ## Running the program
 
-Use of the helper wrapper script is REQUIRED (at least once), because it creates the input parameters (arguments) to the program, as well as a necessary simple file with some population metadata.  
+The program is invoked in the UNIX/Linux-like terminal with a command like this:
 
-The wrapper script is invoked in the UNIX/Linux-like terminal with a command like this:
-
-```bash WrapperForVCFtoSummStats.sh path/to/VCFfile.vcf path/to/samplesAndPopulations.txt```
+```./VCFtoSummStats -V path/to/VCFfile.vcf -P path/to/samplesAndPopulations.txt```
 
 where `VCFfile.vcf` is your VCF file, and `samplesAndPopulations.txt` is a two-column, 
 whitespace delimited, plain-text datafile, in which the first column is the sample IDs 
@@ -26,6 +24,8 @@ whitespace delimited, plain-text datafile, in which the first column is the samp
 is a population designation for each sample (more details below).
 The "path/to/" should be the same for both files.
 (See below for an additional example.)
+
+The `-V` and `-P` arguments are **required**,  i.e., you must supply the names of these two files (and paths if they aren't in the current working directory)
 
 
 ## Assumptions about VCF file format
@@ -39,14 +39,10 @@ name of a file containing information on the samples and the population or taxon
 group to which each sample belongs.  The sample IDs must be in the first column, and
 the population/taxonomic designation must be in the second column. 
 The columns must be separated by whitespace. 
-The file should **NOT have a header**, but if it does, add a third argument, "Y", to the call 
-to the script (i.e., call the script with
-`bash WrapperForVCFtoSummStats.sh path/to/VCFfile.vcf path/to/samplesAndPopulations.txt Y`).
-The "Y" tells the script that, yes, there is a header.  The default is "n" (for no).
-
+The file should **NOT have a header**, but if it does, add a third argument, `-H`, when invoking the program.
 
 ## Important default assumptions
-* The program's default settings assume that your VCF has a single FORMAT that applies to ALL SNPs.   If this is not true, you must invoke the program with the additional flag `-f <numFormats>` , where `<numFormats>` should be an integer > 1.  Any integer greater than 1 is sufficient to cause the program to check the format each time.  You can also give this information to the shell script as a fourth argument. 
+* The program's default settings assume that your VCF has a single FORMAT that applies to ALL SNPs.   If this is not true, you must invoke the program with the additional flag `-f <numFormats>` , where `<numFormats>` should be an integer > 1.  Any integer greater than 1 is sufficient to cause the program to check the format each time. 
 * See note above about assumption of NO header in the population designation file.
 
 
@@ -59,7 +55,7 @@ After cloning this repo, you should be able to run the program (with this direct
 as your current working directory) by using the command syntax given above.  
 An example that you can use to test it quickly on your system is the following:
 
-```bash WrapperForVCFtoSummStats.sh ExampleDataFiles/Small_hmel2.5.30f4.vcf ExampleDataFiles/popFileHmel.txt```
+```./VCFtoSummStats -V ExampleDataFiles/Small_hmel2.5.30f4.vcf -P ExampleDataFiles/popFileHmel.txt```
 
 That command will cause the wrapper script to run, 
 which will call the program with appropriate arguments.
