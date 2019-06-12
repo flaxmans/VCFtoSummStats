@@ -50,8 +50,8 @@ int main(int argc, char *argv[])
     ofstream outputFile;
     
 #ifdef DEBUG
-        string progname = argv[0];
-		cout << "\n\t" << progname << " is running!\n\n";
+    string progname = argv[0];
+    cout << "\n\t" << progname << " is running!\n\n";
 #endif
 	
     // create cross referencing for population membership by sample:
@@ -647,11 +647,11 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
 
 void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations )
 {
-	const int expectedMinArgNum = 2;
+	const int expectedMinArgNum = 4;
 	string progname = argv[0];
     string* uniquePopulationNames;
-	string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way:\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
-	bool numFormatsSet = false;
+	string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way (note flags -V and -P):\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
+    bool numFormatsSet = false, vcfNameSet = false, popFileNameSet = false;
     if ( argc < expectedMinArgNum ) {
 		cout << message;
 		exit(-1);
@@ -666,9 +666,11 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
+                vcfNameSet = true;
 				break;
 			case 'P':
 				popFileName = optarg;
+                popFileNameSet = true;
 				break;
 			case 'H':
 				popFileHeader = true;
@@ -687,6 +689,11 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 				exit(-1);
 		}
 	}
+    
+    if ( !popFileNameSet || !vcfNameSet ) {
+        cerr << message;
+        exit(-1);
+    }
     
     parsePopulationDesigFile( popFileName, numSamples, numPopulations, mapOfPopulations, popFileHeader );
     
