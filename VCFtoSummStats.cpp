@@ -18,20 +18,18 @@
 
 // please see accompanying README.md for more information
 
+#include "VCFtoSummStats.hpp"
+
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
 #include <unistd.h>
 #include <map>
-//#include <sstream>
-#include "VCFtoSummStats.hpp"
-//#include <algorithm>
 #include <time.h>
 using namespace std;
 
 // for boost libraries for decompressing:
 #include <boost/iostreams/filtering_streambuf.hpp>
-//#include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filter/bzip2.hpp>
 
@@ -186,7 +184,7 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
 {
     int count = 0, firstSampleCol = (numFields - numSamples + 1);
     int popIndex;
-    string x = "hello";
+    string x;
     
 #ifdef DEBUG
         if ( firstSampleCol != 10 ) { // expectation based upon VCF format standards
@@ -195,8 +193,6 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
             exit(-2);
         }
 #endif
-    cout << "x is " << x << endl;
-    
     // First: get to header row (past meta-rows) in VCF file:
     while ( VCFfile >> x ) {
         VCFfileLineCount++; // incremement line counter; though the while loop goes one "word"
