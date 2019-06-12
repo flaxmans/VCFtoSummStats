@@ -27,10 +27,9 @@ is a population designation for each sample (more details below).
 The "path/to/" should be the same for both files.
 (See below for an additional example.)
 
+
 ## Assumptions about VCF file format
 The program assumes that the VCF file supplied to the program follows the VCF v4.3 format guidelines as found at [http://samtools.github.io/hts-specs/VCFv4.3.pdf](http://samtools.github.io/hts-specs/VCFv4.3.pdf), accessed 5/31/19.
-
-The wrapper script does do some minimal checking to make sure that the columns/fields are as expected.
 
 
 ## Requirements of file with information on samples and populations
@@ -44,6 +43,11 @@ The file should **NOT have a header**, but if it does, add a third argument, "Y"
 to the script (i.e., call the script with
 `bash WrapperForVCFtoSummStats.sh path/to/VCFfile.vcf path/to/samplesAndPopulations.txt Y`).
 The "Y" tells the script that, yes, there is a header.  The default is "n" (for no).
+
+
+## Important default assumptions
+* The program's default settings assume that your VCF has a single FORMAT that applies to ALL SNPs.   If this is not true, you must invoke the program with the additional flag `-f <numFormats>` , where `<numFormats>` should be an integer > 1.  Any integer greater than 1 is sufficient to cause the program to check the format each time.  You can also give this information to the shell script as a fourth argument. 
+* See note above about assumption of NO header in the population designation file.
 
 
 ## Example data files provided here

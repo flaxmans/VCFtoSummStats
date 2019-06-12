@@ -39,9 +39,9 @@ const string MISSING_DATA_INDICATOR = "NA";
 int main(int argc, char *argv[])
 {
     // variables for command line arguments:
-    int numSamples, numPopulations, numFields, numFormats = 1, firstDataLineNumber = -1;
+    int numSamples, numPopulations, numFields, numFormats, firstDataLineNumber = -1;
     int maxSubfieldsInFormat = MAX_SUBFIELDS_IN_FORMAT_DEFAULT;
-    unsigned long int maxCharPerLine, VCFfileLineCount = 0;
+    unsigned long int VCFfileLineCount = 0;
 	bool popFileHeader;
     string formatDelim = FORMAT_DELIM_DEFAULT, vcfName, popFileName;
     // data file streams:
@@ -53,14 +53,17 @@ int main(int argc, char *argv[])
 		cout << "\n\t" << progname << " is running!\n\n";
 #endif
 	
-	// parse command line options and open file streams for reading:
-    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, maxCharPerLine, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim, maxSubfieldsInFormat, firstDataLineNumber, vcfName, popFileName );
-	
     // create cross referencing for population membership by sample:
     map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
+    
+	// parse command line options and open file streams for reading:
+    parseCommandLineInput(argc, argv, VCFfile, PopulationFile, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim, maxSubfieldsInFormat, vcfName, popFileName, mapOfPopulations );
+	
+    // create cross referencing for population membership by sample:
+    //map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
     map<string, int> mapOfSamples;          // key = sample ID, value = integer representing population index
     int numSamplesPerPopulation[numPopulations];    // for later frequency calculations
-    makePopulationMap( mapOfPopulations, numPopulations, popFileName );
+    //makePopulationMap( mapOfPopulations, numPopulations, popFileName );
     assignPopIndexToSamples( mapOfPopulations, mapOfSamples, PopulationFile, numSamplesPerPopulation, numPopulations, numSamples  );
     
     // assign each sample column in the VCF to a population:
@@ -154,7 +157,7 @@ void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, in
 }
 
 
-bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields, map<string, int> mapOfSamples, int *populationReference, unsigned long int& VCFfileLineCount, int firstDataLineNumber )
+bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields, map<string, int> mapOfSamples, int *populationReference, unsigned long int& VCFfileLineCount, int& firstDataLineNumber )
 {
     int count = 0, firstSampleCol = (numFields - numSamples + 1);
     int popIndex;
@@ -175,6 +178,7 @@ bool assignSamplesToPopulations(ifstream& VCFfile, int numSamples, int numFields
         if ( x.substr(0,2) == "##" ) {
             VCFfile.ignore(unsigned(-1), '\n'); // move to next line
         } else if ( x == "#CHROM" ) {
+            firstDataLineNumber = VCFfileLineCount + 1;
             // this is the header row after the meta-data header lines
             for ( int i = 0; i < NUM_META_COLS ; i++ ) {
                 // advance to first sample header:
@@ -279,7 +283,7 @@ void calculateSummaryStats( ifstream& VCFfile, ofstream& outputFile, int numToke
     int counter = 0, operationCode, popIndex;
     string currentSample, token;
     size_t pos, strStart[numTokensInFormat], strLen[numTokensInFormat];
-    string checkGTsep = "/";
+    string checkGTsep1 = "/", checkGTsep2 = "|"; // the only two expected separators
     string allele1, allele2;
 	int DPnoCall = 0, GQnoCall = 0;
     for ( int i = 0; i < numSamples; i++ ) {
@@ -366,9 +370,10 @@ void calculateSummaryStats( ifstream& VCFfile, ofstream& outputFile, int numToke
                     cout << "\nError in calculateSummaryStats()\n\t:GT token (" << token << ") has length != 3\n\t";
                     cout << "Aborting ... \n\n";
                 }
-                if ( token.substr(1,1) != checkGTsep ) {
+                
+                if ( token.substr(1,1) != checkGTsep1 && token.substr(1,1) != checkGTsep2 ) {
                     cout << "\nError in calculateSummaryStats():\n\tGT token (" << token << ")";
-                    cout << "does not have expected character (" << checkGTsep << ") between alleles.\n\t";
+                    cout << "does not have expected character (" << checkGTsep1 << " or " << checkGTsep2 << ") between alleles.\n\t";
                     cout << "I found: " << token.substr(1,1) << endl;
                     cout << "Aborting ... \n\n";
                 }
@@ -554,28 +559,28 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookF
 
 
 
-void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations, string popFileName )
-{
-    // helpful code for working with maps borrowed from:
-    // https://thispointer.com/stdmap-tutorial-part-1-usage-detail-with-examples/
-    
-    string uniquePopFileName = popFileName + "_UniquePopFile.txt";
-    ifstream uniquePopFile( uniquePopFileName );
-    string popID;
-    int index = 0;
-    
-    // get unique populations
-    while( uniquePopFile >> popID ) {
-        mapOfPopulations[ popID ] = index++;
-    }
-    
-    uniquePopFile.close();
-    
-    if ( index != numPopulations ) {
-        cout << "\nError!  numPopulations (" << numPopulations << ") != number of keys (" << index << ") in mapOfPopulations!\n\tExiting!\n\n";
-        exit(-1);
-    }
-}
+//void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations, string popFileName )
+//{
+//    // helpful code for working with maps borrowed from:
+//    // https://thispointer.com/stdmap-tutorial-part-1-usage-detail-with-examples/
+//
+//    string uniquePopFileName = popFileName + "_UniquePopFile.txt";
+//    ifstream uniquePopFile( uniquePopFileName );
+//    string popID;
+//    int index = 0;
+//
+//    // get unique populations
+//    while( uniquePopFile >> popID ) {
+//        mapOfPopulations[ popID ] = index++;
+//    }
+//
+//    uniquePopFile.close();
+//
+//    if ( index != numPopulations ) {
+//        cout << "\nError!  numPopulations (" << numPopulations << ") != number of keys (" << index << ") in mapOfPopulations!\n\tExiting!\n\n";
+//        exit(-1);
+//    }
+//}
 
 
 void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
@@ -639,21 +644,24 @@ void parseActualData(ifstream& VCFfile, int numFormats, string formatDelim, int 
 }
 
 
-void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, unsigned long int& maxCharPerLine, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, int& firstDataLineNumber, string& vcfName, string& popFileName )
+void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations )
 {
 	const int expectedMinArgNum = 2;
 	string progname = argv[0];
+    string* uniquePopulationNames;
 	string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way:\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
-	bool maxCharSet = false, popFileHeaderSet = false, numFieldsSet = false;
-	bool numSamplesSet = false, numPopulationsSet = false, numFormatsSet = false;
-	if ( argc < expectedMinArgNum ) {
+	bool numFormatsSet = false;
+    if ( argc < expectedMinArgNum ) {
 		cout << message;
 		exit(-1);
 	}
+    // default or automatic values:
+    popFileHeader = false;  // default is NO header
+    numFormats = 1;         // default is same FORMAT for every SNP
 
 	// parse command line options:
 	int flag;
-    while ((flag = getopt(argc, argv, "V:P:L:H:N:n:F:f:D:S:l:")) != -1) {
+    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:l:")) != -1) {
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
@@ -661,27 +669,10 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 			case 'P':
 				popFileName = optarg;
 				break;
-			case 'L':
-				maxCharPerLine = atoi(optarg);
-				maxCharSet = true;
-				break;
 			case 'H':
-				popFileHeader = atoi(optarg);
-				popFileHeaderSet = true;
+				popFileHeader = true;
 				break;
-			case 'N':
-				numSamples = atoi(optarg);
-				numSamplesSet = true;
-				break;
-			case 'n':
-				numPopulations = atoi(optarg);
-				numPopulationsSet = true;
-				break;
-			case 'F':
-				numFields = atoi(optarg);
-				numFieldsSet = true;
-				break;
-            case 'f':
+			case 'f':
                 numFormats = atoi(optarg);
                 numFormatsSet = true;
                 break;
@@ -691,13 +682,16 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
             case 'S':
                 maxSubfieldsInFormat = atoi(optarg);
                 break;
-            case 'l':
-                firstDataLineNumber = atoi(optarg);
-                break;
-			default: /* '?' */
+            default: /* '?' */
 				exit(-1);
 		}
 	}
+    
+    parsePopulationDesigFile( popFileName, numSamples, numPopulations, mapOfPopulations, popFileHeader );
+    
+    numFields = NUM_META_COLS + numSamples;
+    
+    
 	
 	// open file streams and check for errors:
 	VCFfile.open( vcfName );
@@ -716,35 +710,11 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& VCFfile, ifstream& 
 #ifdef DEBUG
         cout << "\nMax length of string on this system = " << testString.max_size() << "\n\n";
 #endif
-	if ( !maxCharSet ) {
-		maxCharPerLine = static_cast<unsigned long int>(testString.max_size());
-		//cout << "\nWarning: maxCharPerLine (maximum line length) is not set.  Using default of " << maxCharPerLine << endl;
-    } else if ( maxCharPerLine > testString.max_size() ) {
-        cout << "\nError!  maxCharPerLine in your VCFfile is " << maxCharPerLine << ",\n";
-        cout << "but max string length on this system is " << testString.max_size() << endl;
-        cout << "Please report this to flaxmans@colorado.edu\n\tAborting ... \n\n";
-        exit(-1);
-    }
-	if ( !popFileHeaderSet ) {
-		cout << "\nError! popFileHeader option (-H) needs to be set to 0 (false) or 1 (true)\nExiting ... \n\n";
-		exit( -1 );
-	}
-	if ( !numSamplesSet ) {
-		cout << "\nError! numSamples option (-N) needs to be set to total number of samples/individuals.\nExiting ... \n\n";
-		exit( -1 );
-	}
-	if ( !numPopulationsSet ) {
-		cout << "\nError! numPopulations option (-n) needs to bet set to total number of populations.\nExiting ... \n\n";
-		exit( -1 );
-	} else if ( numPopulations < 2 ) {
+	if ( numPopulations < 2 ) {
 		cout << "\nError!  numPopulations = " << numPopulations << ", but it has to be >= 2 for this program.\nExiting ...\n\n";
 		exit( -1 );
 	}
-	if ( !numFieldsSet ) {
-		cout << "\nError! numFields option (-F) needs to be set to number of fields in VCF file.\nExiting ... \n\n";
-		exit( -1 );
-	}
-    if ( !numFormatsSet ) {
+	if ( !numFormatsSet ) {
         cout << "\nWarning!! numFormats (-f) not set on command line.\nAssuming numFormats = " << numFormats << endl;
     }
 }
@@ -850,6 +820,84 @@ bool parseMetaColData( ifstream& VCFfile, long int SNPcount, bool checkFormat, i
     return keepThis;
 }
 
+
+void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulations, map<string,int>& mapOfPopulations, bool popFileHeader )
+{
+    // goal is to get numSamples, numPopulations, and uniquePopulationNames
+    
+    ifstream popMapFile( fname );
+    string sampleID, popMembership;
+    int countPops = 0, countSamples = 0, lineCount = 0;
+    map<string, int> tempSampleMap;
+    
+    if ( !popMapFile.good() ) {
+        cout << "\nError in parseCommandLineInput():\n\tPopulation file name '" << fname << "' not found!\n\t--> Check spelling and path.\n\tAborting ... \n\n";
+        exit( -1 );
+    }
+    
+    
+    if ( popFileHeader ) {
+        popMapFile.ignore(unsigned(-1), '\n'); // skip header line
+    }
+    
+    while( popMapFile >> sampleID >> popMembership ) {
+//        cout << sampleID << "\t" << popMembership << endl;
+        ++lineCount;
+        if ( tempSampleMap.count( sampleID ) ) {
+            cerr << "\nError! Duplicate Sample ID (" << sampleID << ") found!\n\tAborting ...\n";
+            exit(-1);
+        } else {
+            tempSampleMap.insert( pair<string, int>(sampleID, ++countSamples) );
+        }
+        if ( !mapOfPopulations.count( popMembership ) ) {
+            mapOfPopulations.insert( pair<string, int>(popMembership, ++countPops) );
+        }
+        
+        
+    }
+//    cout << "lineCount is " << lineCount << endl;
+    
+    popMapFile.close();
+    
+    numSamples = countSamples;
+    numPopulations = countPops;
+    
+    
+    string uniquePopulationNames[numPopulations];
+    int counter = 0;
+    //cout << "\nInitial state of mapOfPopulations:\n\tkey\tvalue\n";
+    // get an alphabetical list of names:
+    for( map<string, int>::const_iterator it = mapOfPopulations.begin();
+        counter < numPopulations;
+        counter++ )
+    {
+        uniquePopulationNames[counter] = it->first;
+        // cout << "\t" << it->first << "\t" << it->second << endl;
+        it++;
+    }
+    counter = 0; // reassign integer designations based upon alphabetical ordering
+    string dums;
+    for( map<string, int>::const_iterator it = mapOfPopulations.begin();
+        counter < numPopulations;
+        counter++ )
+    {
+        dums = uniquePopulationNames[counter];
+        // change value:
+        mapOfPopulations[ dums ] = counter;
+        it++;
+    }
+    
+    cout << "\nPopulation designations by integer ID:\n";
+    for ( int i = 0; i < numPopulations; i++ ) {
+        cout << "\tPopulation " << i << " is " << uniquePopulationNames[i] << endl;
+        dums = uniquePopulationNames[i];
+        if ( mapOfPopulations[ dums ] != i ) {
+            cerr << "\nError in parsePopulationDesigFile():\n\tindexes not set up as you expect!\n\tAborting ... \n";
+            exit(-1);
+        }
+    }
+
+}
 
 void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, map<string, int> mapOfPopulations )
 {
