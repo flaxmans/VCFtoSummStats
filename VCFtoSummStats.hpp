@@ -20,7 +20,7 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 
 inline void checkFormatToken( string token, int& GTtoken, int& DPtoken, int& GQtoken, int subfieldCount  );
 
-void convertTimeInterval( clock_t myTimeInterval, int& minutes, int& seconds);
+void convertTimeInterval( clock_t myTimeInterval, int& minutes, double& seconds);
 
 void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::input>& myVCFin, string vcfName, ifstream& vcfUnfiltered );
 

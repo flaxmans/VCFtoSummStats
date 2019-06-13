@@ -118,7 +118,8 @@ int main(int argc, char *argv[])
 		cout << "\nI ran!!\n\n";
 #endif
     clock_t endTime = clock();
-    int minutes, seconds;
+    int minutes;
+	double seconds;
     convertTimeInterval( (endTime - startTime), minutes, seconds);
     cout << "\nIt took " << minutes << "min., " << seconds << "sec."  << " to run.\n";
 	
@@ -497,13 +498,14 @@ inline void checkFormatToken( string token, int& GTtoken, int& DPtoken, int& GQt
 }
 
 
-void convertTimeInterval( clock_t myTimeInterval, int& minutes, int& seconds)
+void convertTimeInterval( clock_t myTimeInterval, int& minutes, double& seconds)
 {
-    double totalSeconds = ( static_cast<double>( myTimeInterval ) ) / static_cast<double>(CLOCKS_PER_SEC);
+    double totalSeconds = (static_cast<double>( myTimeInterval )) / (static_cast<double>(CLOCKS_PER_SEC));
     long unsigned int totSecondsInt = static_cast<long unsigned int>( totalSeconds );
-    
+	
     minutes = totSecondsInt / 60;
-    seconds = totSecondsInt % 60;
+	seconds = totalSeconds - (static_cast<double> (minutes * 60));
+
 }
 
 
