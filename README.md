@@ -31,7 +31,6 @@ where `VCFfile.vcf` is your VCF file, and `samplesAndPopulations.txt` is a two-c
 whitespace-delimited, plain-text datafile, in which the first column is the sample IDs 
 (corresponding to columns ID's of sample data in the VCF file) and the second column 
 is a population designation for each sample (more details below).
-The "path/to/" should be the same for both files.
 (See below for an additional example.)
 
 The `-V` and `-P` arguments are **required**,  i.e., you must supply the names of these two files (and paths if they aren't in the current working directory)
@@ -74,9 +73,6 @@ An example that you can use to test it quickly on your system is the following:
 ./VCFtoSummStats -V ExampleDataFiles/Small_hmel2.5.30f4.vcf.gz -P ExampleDataFiles/popFileHmel.txt
 ```
 
-As that example illustrates, the program can directly read `.gz` compressed VCF files.  
-Note that it relies on the file extension being accurate.
-
 The main results of that command, assuming it runs successfully on your system, 
 will be output to a file: `Small_hmel2.5.30f4.vcf.gz_Unfiltered_Summary.tsv`.
 
@@ -92,6 +88,6 @@ If you are running MacOS, the easiest way is using `brew` in your Terminal:
 ```
 brew install boost
 ```
-If you don't have [homebrew](https://brew.sh/) installed on your Mac, I recommend getting it.  
+If you don't have [homebrew](https://brew.sh/) installed on your Mac, I recommend getting it.
 Chances are, if you are interested in `VCFtoSummStats`, you're likely to be someone who would be able 
 to use `brew` to easily install lots of other command-line tools and programs that don't come with Xcode.
