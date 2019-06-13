@@ -2,7 +2,7 @@
 
 cd ExampleDataFiles/
 
-testList="Small_hmel2.5.30f4.vcf Medium_hmel2.5.30f4.vcf OneHundredK_TotChromCloeNolan.vcf"
+testList="Small_hmel2.5.30f4.vcf Medium_hmel2.5.30f4.vcf OneHundredK_TotChromCloeNolan.vcf BASW_100k.vcf Total_Chromosomes_Combined_with_header.vcf hmel2.5.30f4.vcf RADseq_allSamples.vcf"
 
 endings1="_Unfiltered_Summary.tsv .bz2_Unfiltered_Summary.tsv .gz_Unfiltered_Summary.tsv"
 
