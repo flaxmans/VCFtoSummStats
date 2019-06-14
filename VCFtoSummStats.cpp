@@ -833,6 +833,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
                 break;
             case 8:
                 INFO = buffer;
+                VCFfile.ignore(unsigned(-1), '\t'); // because INFO can have spaces!!!
                 break;
             case 9:
                 FORMAT = buffer;
