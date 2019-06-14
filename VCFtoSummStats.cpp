@@ -41,6 +41,7 @@ const int MAX_SUBFIELDS_IN_FORMAT_DEFAULT = 30;
 const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, SKIP_OPS_CODE = 3;
     // the latter are FORMAT parsing codes
 const string MISSING_DATA_INDICATOR = "NA";
+bool VERBOSE = false;
 
 
 int main(int argc, char *argv[])
@@ -732,7 +733,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
 
 	// parse command line options:
 	int flag;
-    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:")) != -1) {
+    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:v")) != -1) {
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
@@ -754,6 +755,9 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
                 break;
             case 'S':
                 maxSubfieldsInFormat = atoi(optarg);
+                break;
+            case 'v':
+                VERBOSE = true;
                 break;
             default: /* '?' */
 				exit(-1);
@@ -832,7 +836,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
                 FILTER = buffer;
                 break;
             case 8:
-                INFO = buffer;
+                INFO = buffer; // could be partial if it had spaces!!
                 VCFfile.ignore(unsigned(-1), '\t'); // because INFO can have spaces!!!
                 break;
             case 9:
@@ -847,9 +851,11 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     }
     
     // status report:
-    if ( SNPcount % 10000 == 0 ) {
-        cout << "\nSNP lines processed so far = " << SNPcount << "; Current SNP is:\n\t";
-        cout <<  CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << endl;
+    if ( VERBOSE ) {
+        if ( SNPcount % 10000 == 0 ) {
+            cout << "\nSNP lines processed so far = " << SNPcount << "; Current SNP is:\n\t";
+            cout <<  CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << endl;
+        }
     }
     
     if ( checkFormat ) {
@@ -965,9 +971,11 @@ void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulation
         it++;
     }
     
-    cout << "\nPopulation designations by integer ID:\n";
+    if ( VERBOSE )
+        cout << "\nPopulation designations by integer ID:\n";
     for ( int i = 0; i < numPopulations; i++ ) {
-        cout << "\tPopulation " << i << " is " << uniquePopulationNames[i] << endl;
+        if ( VERBOSE )
+            cout << "\tPopulation " << i << " is " << uniquePopulationNames[i] << endl;
         dums = uniquePopulationNames[i];
         if ( mapOfPopulations[ dums ] != i ) {
             cerr << "\nError in parsePopulationDesigFile():\n\tindexes not set up as you expect!\n\tAborting ... \n";
