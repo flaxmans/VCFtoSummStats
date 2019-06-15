@@ -18,7 +18,7 @@ do
 		then
 			cmd="diff $ref $testFile"
 			echo "$cmd :"
-			$cmd
+			$cmd | wc -l
 			printf "\n\t*******************\n"
 		fi
 	done
@@ -30,7 +30,7 @@ do
 		then
 			cmd="diff $ref $testFile"
 			echo "$cmd :"
-			$cmd
+			$cmd | wc -l
 			printf "\n\t*******************\n"
 		fi
 	done
