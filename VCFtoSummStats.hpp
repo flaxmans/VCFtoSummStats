@@ -30,6 +30,8 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookF
 
 //void makePopulationMap( map<string, int>& mapOfPopulations, int numPopulations, string popFileName );
 
+double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO );
+
 void parseActualData(istream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName );
 
 void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations );

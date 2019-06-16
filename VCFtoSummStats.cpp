@@ -42,6 +42,8 @@ const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, SKIP_OPS_CODE = 3;
     // the latter are FORMAT parsing codes
 const string MISSING_DATA_INDICATOR = "NA";
 bool VERBOSE = false;
+const size_t MAX_BUFFER_SIZE = 512; // length of char arrays used as buffers
+const char VCF_DELIM = '\t'; // VCF files must be tab delimited
 
 
 int main(int argc, char *argv[])
@@ -660,6 +662,54 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookF
 //}
 
 
+double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
+{
+    char dumc;
+    int count = 0, buffCount, valCount;
+    bool DPfound = false;
+    char holdValueAsChar[80];
+    double DPval;
+    
+    do {
+        if ( INFObuffer[count] == 'D' ) {
+            // could be DP
+            if ( INFObuffer[(count+1)] == 'P' ) {
+                if ( INFObuffer[(count+2)] == ' ' || INFObuffer[(count+2)] == '=' ) {
+                    // found it;
+                    DPfound = true;
+                    // because spaces are allowed in VCF standard, it could be
+                    // DP = num or DP= num or DP =num or DP=num
+                    buffCount = count+2;
+                    valCount = 0;
+                    while ( INFObuffer[ buffCount ] == ' ' || INFObuffer[ buffCount ] == '=' ) {
+                        ++buffCount; // get buffCount to first character that is past the equals sign
+                    }
+                    while ( INFObuffer[ buffCount ] != ';' && INFObuffer[ buffCount ] != '\t' && INFObuffer[ buffCount ] != ',') {
+                        holdValueAsChar[ valCount++ ] = INFObuffer[ buffCount++ ];
+                    }
+                    holdValueAsChar[ valCount ] = '\0';  // terminate with null string
+                    if ( !valCount ) {
+                        cerr << "\nError in extractDPvalue():\n\tDP found in INFO but no value found following it!\n\tAborting ....\n\n";
+                        exit(-5);
+                    }
+                    DPval = stod( holdValueAsChar );
+                }
+            }
+        }
+    } while ( (INFObuffer[++count] != '\0') && (count < MAX_BUFFER_SIZE) && !DPfound );
+    
+    if ( !DPfound ) {
+        cout << "\nWarning!!  No DP found in INFO field...\n";
+        lookForDPinINFO = false;
+        DPval = std::numeric_limits<double>::quiet_NaN();
+//        cout << "\n\tYo it's nan: " << DPval << endl;
+    }
+    
+    
+    return DPval;
+}
+
+
 void parseActualData(istream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
 {
     string CHROM, POS, ID, REF, ALT, QUAL;
@@ -809,10 +859,13 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
 bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, string formatDelim, string& CHROM, string& POS, string& ID, string& REF, string& ALT, string& QUAL )
 {
     int subfieldCount;  // field counter, starting with index of 1
+    double DPval;
     string buffer, myDelim = formatDelim, token;
     string FILTER, INFO, FORMAT;
     size_t pos;
     bool keepThis;
+    char *INFObuffer = new char[MAX_BUFFER_SIZE];
+    static bool lookForDPinINFO = true;
 
 
     // loop over fields:
@@ -837,13 +890,27 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
             case 6:
                 QUAL = buffer;
                 break;
-            case 7:
+            case 7:                 // this also handles 8!
                 FILTER = buffer;
+                // need to prepare to handle INFO column next
+                VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
+                VCFfile.get( INFObuffer, MAX_BUFFER_SIZE, VCF_DELIM );
+                
+//                fprintf(stdout, "INFObuffer is: \t%s[end]\n", INFObuffer);
+                if ( lookForDPinINFO ) {
+                    DPval = extractDPvalue( INFObuffer, lookForDPinINFO );
+//                    cout << "\tDPval extracted is: \t" << DPval << endl;
+                } else {
+                    DPval = std::numeric_limits<double>::quiet_NaN();
+//                    cout << "\tYo DPval is " << DPval << " bruh\n\n  **************** \n\n";
+                }
+                
+                col++; // since this case also handles 8!
                 break;
-            case 8:
-                INFO = buffer; // could be partial if it had spaces!!
-                VCFfile.ignore(unsigned(-1), '\t'); // because INFO can have spaces!!!
-                break;
+//            case 8:
+//                INFO = buffer; // could be partial if it had spaces!!
+//                VCFfile.ignore(unsigned(-1), VCF_DELIM); // because INFO can have spaces!!!
+//                break;
             case 9:
                 FORMAT = buffer;
                 break;
@@ -905,6 +972,8 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 //        cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
 //#endif
     }
+    
+    delete[] INFObuffer;
 
     return keepThis;
 }
