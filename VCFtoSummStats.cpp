@@ -311,7 +311,7 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
     }
 
     // loop over all columns of data:
-    int counter = 0, operationCode, popIndex;
+    int sampleCounter = 0, operationCode, popIndex;
     char* currentSample = new char[MAX_BUFFER_SIZE];
     //size_t pos, strStart[numTokensInFormat], strLen[numTokensInFormat];
     size_t tokenLength, maxTokenLength = 80;
@@ -320,9 +320,9 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 	int DPnoCall = 0, GQnoCall = 0;
     char* charpt, dummyChar;
     char tokenHolder[maxTokenLength];
-    for ( int i = 0; i < numSamples; i++ ) {
+    for ( sampleCounter = 0; sampleCounter < numSamples; sampleCounter++ ) {
         
-        popIndex = populationReference[ counter ];
+        popIndex = populationReference[ sampleCounter ];
         
 //        VCFfile.get( dummyChar );
 //#ifdef DEBUG
@@ -333,14 +333,16 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 //#endif
         
         // parse the current sample:
-        for ( int i = 0; i < numTokensInFormat; i++ ) {
+        for ( int tokeni = 0; tokeni < numTokensInFormat; tokeni++ ) {
             VCFfile.get( dummyChar ); // always have to clear the delims
-            if ( i < ( numTokensInFormat - 1 ) )
+            if ( tokeni < ( numTokensInFormat - 1 ) )
                 VCFfile.get( tokenHolder, maxTokenLength, formatDelim ); // get up to next ':'
-            else
+            else if ( sampleCounter < ( numSamples - 1 ) )
                 VCFfile.get( tokenHolder, maxTokenLength, VCF_DELIM ); // get up to next '\t'
+            else
+                VCFfile.get( tokenHolder, maxTokenLength, '\n' ); // last possible one
             // get operation code:
-            operationCode = formatOpsOrder[i];
+            operationCode = formatOpsOrder[tokeni];
             tokenLength = strlen( tokenHolder );
             if ( operationCode == GT_OPS_CODE ) {
                 // parse the genotype data and add to correct population
@@ -396,8 +398,8 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
                     cerr << "Aborting ... \n\n";
                     exit(-1);
                 }
-//                if ( counter % 100 == 0 ) {
-//                    cout << "\nsample " << (counter+1) << ", loop count " << i << ", GT is " << token << endl;
+//                if ( sampleCounter % 100 == 0 ) {
+//                    cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GT is " << token << endl;
 //                    cout << "allele1 = " << allele1 << ", allele2 = " << allele2 << "\t" << allele1.length() << "\t" << allele2.length() << endl;
 //                    cout << "homoRefCount = " << homoRefCount << ", hetCount = " << hetCount << ", homoAltCount = " << homoAltCount << endl;
 //                    cout << "Valid sample counts and alt allele counts by popn:\n";
@@ -410,24 +412,24 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
             } else if ( operationCode == DP_OPS_CODE && lookForDP ) {
                 // add the DP data to DP array
 				if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
-					DPvalues[counter] = -1;
+					DPvalues[sampleCounter] = -1;
 					DPnoCall++;
 				} else {
                     //fprintf(stdout, "\nDP tokenHolder is: [%s] with length %lu\n", tokenHolder, tokenLength);
-                	DPvalues[counter] = stoi(tokenHolder);
+                	DPvalues[sampleCounter] = stoi(tokenHolder);
 				}
 
-//                cout << "\nsample " << (counter+1) << ", loop count " << i << ", DP is " << token << endl;
+//                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", DP is " << token << endl;
             } else if ( operationCode == GQ_OPS_CODE && lookForGQ ) {
                 // add the GQ data to the GQ array
 				if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
-					GQvalues[counter] = -1;
+					GQvalues[sampleCounter] = -1;
 					GQnoCall++;
 				} else {
                     //fprintf(stdout, "\nGQ tokenHolder is: [%s] with length %lu\n", tokenHolder, tokenLength);
-					GQvalues[counter] = stoi(tokenHolder);
+					GQvalues[sampleCounter] = stoi(tokenHolder);
 				}
-//                cout << "\nsample " << (counter+1) << ", loop count " << i << ", GQ is " << token << endl;
+//                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GQ is " << token << endl;
             }
 
             // otherwise just skip it
@@ -436,13 +438,12 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
             //currentSample.erase(0, pos + formatDelim.length()); // old way replaced by prior for loop
         }  // end of loop over tokens in sample
 
-        counter++;  // keep track of how many samples have been processed
     }  // end of for() loop over numSamples; used to be while() loop over lineStream
 
     // error checking:
-    if ( counter != numSamples ) {
+    if ( sampleCounter != numSamples ) {
         cout << "\nError in calculateSummaryStats():\n\tline parsing did not give numSamples number of loops.\n\t";
-        cout << "counter = " << counter << ", but numSamples = " << numSamples;
+        cout << "sampleCounter = " << sampleCounter << ", but numSamples = " << numSamples;
         cout << "\n\tThis suggests inconsistencies in VCF file construction\n\twith uneven numbers of samples per row";
         cout << "\n\tAborting ... ";
         exit(-5);
@@ -750,9 +751,10 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
             outputFile << endl;
 		} else {
 			discardedLinesFile << VCFfileLineCount << endl;
+            
 		}
-
         VCFfile.ignore(unsigned(-1), '\n'); // go to end of line
+        
 
         if ( numFormats == 1 ) {
             checkFormat = false; // not needed after first SNP
