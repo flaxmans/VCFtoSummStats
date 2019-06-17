@@ -37,7 +37,7 @@ using namespace std;
 
 // global variables
 const int NUM_META_COLS = 9;    // exected number of fields of data prior to samples in VCF
-const string FORMAT_DELIM_DEFAULT = ":"; // expected delimiter of subfields of FORMAT column of VCF
+const char FORMAT_DELIM_DEFAULT = ':'; // expected delimiter of subfields of FORMAT column of VCF
 const int MAX_SUBFIELDS_IN_FORMAT_DEFAULT = 30;
 const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, SKIP_OPS_CODE = 3;
     // the latter are FORMAT parsing codes
@@ -61,7 +61,8 @@ int main(int argc, char *argv[])
     int maxSubfieldsInFormat = MAX_SUBFIELDS_IN_FORMAT_DEFAULT;
     unsigned long int VCFfileLineCount = 0;
 	bool popFileHeader;
-    string formatDelim = FORMAT_DELIM_DEFAULT, vcfName, popFileName;
+    char formatDelim = FORMAT_DELIM_DEFAULT;
+    string vcfName, popFileName;
     // data file streams:
     ifstream PopulationFile;    // population and sample designations
     ofstream outputFile;
@@ -291,7 +292,7 @@ inline int calculateMedian( int values[], int n, int ignoreFirst )
 }
 
 
-void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, string formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
+void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
 {
     int homoRefCount = 0, homoAltCount = 0, hetCount = 0, altAlleleCounts[numPopulations];
     int validSampleCounts[numPopulations], DPvalues[numSamples], GQvalues[numSamples];
@@ -311,101 +312,89 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 
     // loop over all columns of data:
     int counter = 0, operationCode, popIndex;
-    string currentSample, token;
-    size_t pos, strStart[numTokensInFormat], strLen[numTokensInFormat];
-    string checkGTsep1 = "/", checkGTsep2 = "|"; // the only two expected separators
-    string allele1, allele2;
+    char* currentSample = new char[MAX_BUFFER_SIZE];
+    //size_t pos, strStart[numTokensInFormat], strLen[numTokensInFormat];
+    size_t tokenLength, maxTokenLength = 80;
+    char checkGTsep1 = '/', checkGTsep2 = '|'; // the only two expected separators
+    char allele1, allele2;
 	int DPnoCall = 0, GQnoCall = 0;
+    char* charpt, dummyChar;
+    char tokenHolder[maxTokenLength];
     for ( int i = 0; i < numSamples; i++ ) {
-    //while ( lineStream >> currentSample ) {
-        VCFfile >> currentSample;
-        // currentSample should be a string with format given by FORMAT
-        // add a delimiter for easier parsing of final subfield in loop:
-        //currentSample = currentSample + formatDelim;
+        
         popIndex = populationReference[ counter ];
-        pos = 0;
-        for ( int i = 0; i < numTokensInFormat; i++ ) {
-            strStart[i] = pos;
-            pos = currentSample.find( formatDelim, pos );  // next occurrence of delimiter
-            strLen[i] = pos - strStart[i]; // length of this field
-            pos++; // increment for next
-        }
-
+        
+//        VCFfile.get( dummyChar );
+//#ifdef DEBUG
+//        if ( dummyChar != '\t' ) {
+//            cerr << "\nYo, file parsing not working way you think.\n\tIn calculateSummaryStats():\n\t";
+//            cerr << "dummyChar = " << dummyChar << endl;
+//        }
+//#endif
+        
         // parse the current sample:
         for ( int i = 0; i < numTokensInFormat; i++ ) {
-            // get the substring:
-            //pos = currentSample.find( formatDelim ); // old way replaced by for loop above
-            token = currentSample.substr(strStart[i], strLen[i]);
+            VCFfile.get( dummyChar ); // always have to clear the delims
+            if ( i < ( numTokensInFormat - 1 ) )
+                VCFfile.get( tokenHolder, maxTokenLength, formatDelim ); // get up to next ':'
+            else
+                VCFfile.get( tokenHolder, maxTokenLength, VCF_DELIM ); // get up to next '\t'
             // get operation code:
             operationCode = formatOpsOrder[i];
+            tokenLength = strlen( tokenHolder );
             if ( operationCode == GT_OPS_CODE ) {
                 // parse the genotype data and add to correct population
-                allele1 = token.substr(0,1);
-                allele2 = token.substr(2,1);
+                allele1 = tokenHolder[0];
+                allele2 = tokenHolder[2]; // for biallelic SNPS, it should go like this always!
 
                 // considering the diploid genotype, there are 9 options:
-                if ( allele1 == "0" ) {
-                    if ( allele2 == "0" ) {
+                if ( allele1 == '0' ) {
+                    if ( allele2 == '0' ) {
                         homoRefCount++;
                         validSampleCounts[popIndex] += 2; // diploid; no alt alleles
-                    } else if ( allele2 == "1" ) {
+                    } else if ( allele2 == '1' ) {
                         hetCount++;
                         validSampleCounts[popIndex] += 2; // diploid
                         altAlleleCounts[popIndex]++; // one alt allele
                     } else {
-//#ifdef DEBUG
-//                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
-//                        cout << ", sample number " << (counter + 1);
-//#endif
+                        // only allele1 was valid/called:
                         validSampleCounts[popIndex]++;
                     }
-                } else if ( allele1 == "1" ) {
-                    if ( allele2 == "0" ) {
+                } else if ( allele1 == '1' ) {
+                    if ( allele2 == '0' ) {
                         hetCount++;
                         validSampleCounts[popIndex] += 2; // diploid
                         altAlleleCounts[popIndex]++; // one alt allele
-                    } else if ( allele2 == "1" ) {
+                    } else if ( allele2 == '1' ) {
                         homoAltCount++;
                         validSampleCounts[popIndex] += 2; // diploid
                         altAlleleCounts[popIndex] += 2; // two alt alleles
                     } else {
-//#ifdef DEBUG
-//                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
-//                        cout << ", sample number " << (counter + 1);
-//#endif
+                        // allele 2 was not valid/called
                         validSampleCounts[popIndex]++;
                         altAlleleCounts[popIndex]++; // one alt allele
                     }
                 } else {
-//#ifdef DEBUG
-//                    cout << "\nWarning!!\n\t: Allele1 not called in VCF line " << VCFfileLineCount;
-//                    cout << ", sample number " << (counter + 1);
-//#endif
-                    if ( allele2 == "0" || allele2 == "1" ) {
-                        validSampleCounts[popIndex] += 1; // diploid
-                        if ( allele2 == "1" )
+                    // allele 1 was not valid/called
+                    if ( allele2 == '0' || allele2 == '1' ) {
+                        validSampleCounts[popIndex]++;
+                        if ( allele2 == '1' )
                             altAlleleCounts[popIndex]++; // one alt allele
-                    } else {
-//#ifdef DEBUG
-//                        cout << "\nWarning!!\n\t: Allele2 not called in VCF line " << VCFfileLineCount;
-//                        cout << ", sample number " << (counter + 1);
-//#endif
                     }
                 }
 
                 // now recording allele counts:
 
 //#ifdef DEBUG
-                if ( token.length() != 3 ) {
-                    cout << "\nError in calculateSummaryStats()\n\t:GT token (" << token << ") has length != 3\n\t";
-                    cout << "Aborting ... \n\n";
-                }
 
-                if ( token.substr(1,1) != checkGTsep1 && token.substr(1,1) != checkGTsep2 ) {
-                    cout << "\nError in calculateSummaryStats():\n\tGT token (" << token << ")";
-                    cout << "does not have expected character (" << checkGTsep1 << " or " << checkGTsep2 << ") between alleles.\n\t";
-                    cout << "I found: " << token.substr(1,1) << endl;
-                    cout << "Aborting ... \n\n";
+                if ( tokenHolder[1] != checkGTsep1 && tokenHolder[1] != checkGTsep2 ) {
+                    cerr << "\nError in calculateSummaryStats():\n\tGT token ";
+                    cerr << "does not have expected character (" << checkGTsep1 << " or " << checkGTsep2 << ") between alleles.\n\t";
+                    cerr << "I found: " << tokenHolder[1] << ", and the whole token was:\n\t";
+                    
+                    fprintf(stderr, "[start]%s[end], length = %lu\n", tokenHolder, tokenLength);
+                    cerr << "Aborting ... \n\n";
+                    exit(-1);
                 }
 //                if ( counter % 100 == 0 ) {
 //                    cout << "\nsample " << (counter+1) << ", loop count " << i << ", GT is " << token << endl;
@@ -420,21 +409,23 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 
             } else if ( operationCode == DP_OPS_CODE && lookForDP ) {
                 // add the DP data to DP array
-				if ( token == "." ) {
+				if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
 					DPvalues[counter] = -1;
 					DPnoCall++;
 				} else {
-                	DPvalues[counter] = stoi(token);
+                    //fprintf(stdout, "\nDP tokenHolder is: [%s] with length %lu\n", tokenHolder, tokenLength);
+                	DPvalues[counter] = stoi(tokenHolder);
 				}
 
 //                cout << "\nsample " << (counter+1) << ", loop count " << i << ", DP is " << token << endl;
             } else if ( operationCode == GQ_OPS_CODE && lookForGQ ) {
                 // add the GQ data to the GQ array
-				if ( token == "." ) {
+				if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
 					GQvalues[counter] = -1;
 					GQnoCall++;
 				} else {
-					GQvalues[counter] = stoi(token);
+                    //fprintf(stdout, "\nGQ tokenHolder is: [%s] with length %lu\n", tokenHolder, tokenLength);
+					GQvalues[counter] = stoi(tokenHolder);
 				}
 //                cout << "\nsample " << (counter+1) << ", loop count " << i << ", GQ is " << token << endl;
             }
@@ -491,8 +482,6 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
     }
 
     // outputFile << endl;  not needed here; this is done in parseActualData()
-
-
 
 }
 
@@ -556,7 +545,7 @@ void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::in
 }
 
 
-void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, string formatDelim, int formatOpsOrder[], int maxSubfieldsInFormat )
+void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, char formatDelim, int formatOpsOrder[], int maxSubfieldsInFormat )
 {
     // first a safety check:
     if ( maxSubfieldsInFormat < numTokensInFormat ) {
@@ -713,7 +702,7 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
 }
 
 
-void parseActualData(istream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
+void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
 {
     string CHROM, POS, ID, REF, ALT;
     string QUAL;
@@ -776,7 +765,7 @@ void parseActualData(istream& VCFfile, int numFormats, string formatDelim, int m
 }
 
 
-void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, string& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations )
+void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, char& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations )
 {
 	const int expectedMinArgNum = 4;
 	string progname = argv[0];
@@ -812,7 +801,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
                 numFormatsSet = true;
                 break;
             case 'D':
-                formatDelim = optarg;
+                formatDelim = optarg[0];
                 break;
             case 'S':
                 maxSubfieldsInFormat = atoi(optarg);
@@ -867,11 +856,12 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
 }
 
 
-bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, string formatDelim, string& CHROM, string& POS, string& ID, string& REF, string& ALT, string& QUAL )
+bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, char formatDelim, string& CHROM, string& POS, string& ID, string& REF, string& ALT, string& QUAL )
 {
     int subfieldCount;  // field counter, starting with index of 1
     double DPval;
-    string buffer, myDelim = formatDelim, token;
+    string buffer, token;
+    string myDelim(1, formatDelim);  // cast as string for now ...
     string FILTER, INFO, FORMAT;
     size_t pos;
     bool keepThis = true;

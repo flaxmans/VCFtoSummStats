@@ -10,13 +10,13 @@ popFiles=(BASW_popMap.txt popFileHmel.txt CloeNolanPopData.txt BASW_popMap.txt p
 date > foo.out
 date > bar.out
 
-for ((i=1; i < 3; i++))
+for ((i=0; i < 3; i++))
 do
     vf=${fileList[$i]}
     if [ -f "ExampleDataFiles/${vf}" ]
     then
       pf=${popFiles[$i]}
-      cmd="./VCFtoSummStats -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf}"
+      cmd="./VCFtoSummStats -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf} -d -1.0"
       echo "$cmd"
       echo "$cmd" >> foo.out
       echo "$cmd" >> bar.out
