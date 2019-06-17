@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <map>
 #include <time.h>
+#include <math.h>
 using namespace std;
 
 // for boost libraries for decompressing:
@@ -44,6 +45,8 @@ const string MISSING_DATA_INDICATOR = "NA";
 bool VERBOSE = false;
 const size_t MAX_BUFFER_SIZE = 512; // length of char arrays used as buffers
 const char VCF_DELIM = '\t'; // VCF files must be tab delimited
+const double OVERALL_DP_MIN_THRESHOLD_DEFAULT = 2.0;
+double OVERALL_DP_MIN_THRESHOLD;
 
 
 int main(int argc, char *argv[])
@@ -712,7 +715,9 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
 
 void parseActualData(istream& VCFfile, int numFormats, string formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
 {
-    string CHROM, POS, ID, REF, ALT, QUAL;
+    string CHROM, POS, ID, REF, ALT;
+    string QUAL;
+    //double QUAL;
     long int dumCol, SNPcount = 0;
     char dummyChar;
     bool keepThis, checkFormat = true, lookForDP, lookForGQ;
@@ -785,10 +790,11 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
     // default or automatic values:
     popFileHeader = false;  // default is NO header
     numFormats = 1;         // default is same FORMAT for every SNP
+    OVERALL_DP_MIN_THRESHOLD = OVERALL_DP_MIN_THRESHOLD_DEFAULT;
 
 	// parse command line options:
 	int flag;
-    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:v")) != -1) {
+    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:vd:")) != -1) {
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
@@ -814,6 +820,9 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
             case 'v':
                 VERBOSE = true;
                 break;
+            case 'd':
+                OVERALL_DP_MIN_THRESHOLD = stod(optarg);
+                break;
             default: /* '?' */
 				exit(-1);
 		}
@@ -823,6 +832,8 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
         cerr << message;
         exit(-1);
     }
+    
+    cout << "\nOVERALL_DP_MIN_THRESHOLD is " << OVERALL_DP_MIN_THRESHOLD << endl;
 
     parsePopulationDesigFile( popFileName, numSamples, numPopulations, mapOfPopulations, popFileHeader );
 
@@ -863,13 +874,15 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     string buffer, myDelim = formatDelim, token;
     string FILTER, INFO, FORMAT;
     size_t pos;
-    bool keepThis;
+    bool keepThis = true;
     char *INFObuffer = new char[MAX_BUFFER_SIZE];
     static bool lookForDPinINFO = true;
 
 
     // loop over fields:
-    for ( int col = 1; col <= NUM_META_COLS; col++ ) {
+    int col = 1;
+    while( (col <= NUM_META_COLS) && keepThis ) {
+//    for ( int col = 1; col <= NUM_META_COLS; col++ ) {
         VCFfile >> buffer;
         switch ( col ) {
             case 1:
@@ -889,6 +902,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
                 break;
             case 6:
                 QUAL = buffer;
+                //QUAL = stod(buffer);
                 break;
             case 7:                 // this also handles 8!
                 FILTER = buffer;
@@ -900,6 +914,12 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
                 if ( lookForDPinINFO ) {
                     DPval = extractDPvalue( INFObuffer, lookForDPinINFO );
 //                    cout << "\tDPval extracted is: \t" << DPval << endl;
+                    if ( !isnan( DPval ) ) {
+                        if ( DPval >= OVERALL_DP_MIN_THRESHOLD )
+                            keepThis = true;
+                        else
+                            keepThis = false;
+                    }
                 } else {
                     DPval = std::numeric_limits<double>::quiet_NaN();
 //                    cout << "\tYo DPval is " << DPval << " bruh\n\n  **************** \n\n";
@@ -907,10 +927,6 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
                 
                 col++; // since this case also handles 8!
                 break;
-//            case 8:
-//                INFO = buffer; // could be partial if it had spaces!!
-//                VCFfile.ignore(unsigned(-1), VCF_DELIM); // because INFO can have spaces!!!
-//                break;
             case 9:
                 FORMAT = buffer;
                 break;
@@ -920,6 +936,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
                 exit(-3);
                 break;
         }
+        col++;
     }
 
     // status report:
