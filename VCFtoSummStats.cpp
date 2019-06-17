@@ -881,7 +881,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 
     // loop over fields:
     int col = 1;
-    while( (col <= NUM_META_COLS) && keepThis ) {
+    while( col <= NUM_META_COLS ) {
 //    for ( int col = 1; col <= NUM_META_COLS; col++ ) {
         VCFfile >> buffer;
         switch ( col ) {
@@ -978,17 +978,19 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 
     }
     // check for bi-allelic SNPs:
-    if ( REF == "N" || ALT == "N" || ALT.length() != 1 ) {
-        keepThis = false;
-    } else {
-        keepThis = true;
+    if ( keepThis ) {
+        if ( REF == "N" || ALT == "N" || ALT.length() != 1 ) {
+            keepThis = false;
+        } else {
+            keepThis = true;
+        }
     }
 
-    if ( !keepThis ) {
+//    if ( !keepThis ) {
 //#ifdef DEBUG
 //        cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
 //#endif
-    }
+//    }
     
     delete[] INFObuffer;
 
