@@ -312,7 +312,6 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 
     // loop over all columns of data:
     int sampleCounter = 0, operationCode, popIndex;
-    char* currentSample = new char[MAX_BUFFER_SIZE];
     //size_t pos, strStart[numTokensInFormat], strLen[numTokensInFormat];
     size_t tokenLength, maxTokenLength = 80;
     char checkGTsep1 = '/', checkGTsep2 = '|'; // the only two expected separators
@@ -862,7 +861,8 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 {
     int subfieldCount;  // field counter, starting with index of 1
     double DPval;
-    string buffer, token;
+    char *buffer = new char[MAX_BUFFER_SIZE];
+    string token;
     string myDelim(1, formatDelim);  // cast as string for now ...
     string FILTER, INFO, FORMAT;
     size_t pos;
@@ -873,64 +873,77 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 
     // loop over fields:
     int col = 1;
-    while( col <= NUM_META_COLS ) {
-//    for ( int col = 1; col <= NUM_META_COLS; col++ ) {
-        VCFfile >> buffer;
-        switch ( col ) {
-            case 1:
-                CHROM = buffer;
-                break;
-            case 2:
-                POS = buffer;
-                break;
-            case 3:
-                ID = buffer;
-                break;
-            case 4:
-                REF = buffer;
-                break;
-            case 5:
-                ALT = buffer;
-                break;
-            case 6:
-                QUAL = buffer;
-                //QUAL = stod(buffer);
-                break;
-            case 7:                 // this also handles 8!
-                FILTER = buffer;
-                // need to prepare to handle INFO column next
-                VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
-                VCFfile.get( INFObuffer, MAX_BUFFER_SIZE, VCF_DELIM );
-                
-//                fprintf(stdout, "INFObuffer is: \t%s[end]\n", INFObuffer);
-                if ( lookForDPinINFO ) {
-                    DPval = extractDPvalue( INFObuffer, lookForDPinINFO );
-//                    cout << "\tDPval extracted is: \t" << DPval << endl;
-                    if ( !isnan( DPval ) ) {
-                        if ( DPval >= OVERALL_DP_MIN_THRESHOLD )
-                            keepThis = true;
-                        else
-                            keepThis = false;
-                    }
-                } else {
-                    DPval = std::numeric_limits<double>::quiet_NaN();
-//                    cout << "\tYo DPval is " << DPval << " bruh\n\n  **************** \n\n";
-                }
-                
-                col++; // since this case also handles 8!
-                break;
-            case 9:
-                FORMAT = buffer;
-                break;
-            default:
-                cout << "\nError in parseActualData():\n\t";
-                cout << "case-switch not working as expected.\n\tAborting ...\n\n";
-                exit(-3);
-                break;
+    //while( col <= NUM_META_COLS ) {
+    //    for ( int col = 1; col <= NUM_META_COLS; col++ ) {
+    //VCFfile.get( buffer, MAX_BUFFER_SIZE, VCF_DELIM );
+    //fprintf(stdout, "col = %i \t buffer = %s\n", col, buffer);
+    //switch ( col ) {
+    //            case 1:
+    VCFfile.get( CHROM, MAX_BUFFER_SIZE, VCF_DELIM );
+    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    //                break;
+    //            case 2:
+    VCFfile.get( POS, MAX_BUFFER_SIZE, VCF_DELIM );
+    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    //                break;
+    //            case 3:
+    VCFfile.get( ID, MAX_BUFFER_SIZE, VCF_DELIM );
+    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    //                break;
+    //            case 4:
+    VCFfile.get( REF, MAX_BUFFER_SIZE, VCF_DELIM );
+    //                break;
+    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    //            case 5:
+    VCFfile.get( ALT, MAX_BUFFER_SIZE, VCF_DELIM );
+    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    //                break;
+    //            case 6:
+    VCFfile.get( QUAL, MAX_BUFFER_SIZE, VCF_DELIM );
+    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    //QUAL = stod(buffer);
+    //                break;
+    //            case 7:                 // this also handles 8!
+    VCFfile.get( FILTER, MAX_BUFFER_SIZE, VCF_DELIM );
+    // need to prepare to handle INFO column next
+    VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
+    VCFfile.get( INFObuffer, MAX_BUFFER_SIZE, VCF_DELIM );
+    
+    //                fprintf(stdout, "INFObuffer is: \t%s[end]\n", INFObuffer);
+    if ( lookForDPinINFO ) {
+        DPval = extractDPvalue( INFObuffer, lookForDPinINFO );
+        //                    cout << "\tDPval extracted is: \t" << DPval << endl;
+        if ( !isnan( DPval ) ) {
+            if ( DPval >= OVERALL_DP_MIN_THRESHOLD )
+                keepThis = true;
+            else
+                keepThis = false;
         }
-        col++;
+    } else {
+        DPval = std::numeric_limits<double>::quiet_NaN();
+        //                    cout << "\tYo DPval is " << DPval << " bruh\n\n  **************** \n\n";
     }
-
+    
+    //                col++; // since this case also handles 8!
+    //                break;
+    //            case 9:
+    VCFfile.get( FORMAT, MAX_BUFFER_SIZE, VCF_DELIM );
+    //                FORMAT = buffer;
+    //                break;
+    //            default:
+    //                cout << "\nError in parseActualData():\n\t";
+    //                cout << "case-switch not working as expected.\n\tAborting ...\n\n";
+    //                exit(-3);
+    //                break;
+    //        }
+    //        if ( col < NUM_META_COLS )
+    //            VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab, but not on last one, because
+    //            // calcSummaryStats() always clears a character at the beginning of its loop
+    //        col++;
+    //
+    //    }
+    //
+    
     // status report:
     if ( VERBOSE ) {
         if ( SNPcount % 10000 == 0 ) {
@@ -985,6 +998,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 //    }
     
     delete[] INFObuffer;
+    delete[] buffer;
 
     return keepThis;
 }
