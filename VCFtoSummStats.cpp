@@ -47,6 +47,7 @@ const size_t MAX_BUFFER_SIZE = 512; // length of char arrays used as buffers
 const char VCF_DELIM = '\t'; // VCF files must be tab delimited
 const double OVERALL_DP_MIN_THRESHOLD_DEFAULT = 2.0;
 double OVERALL_DP_MIN_THRESHOLD;
+size_t MAX_TOKEN_LENGTH = 80;
 
 
 int main(int argc, char *argv[])
@@ -313,12 +314,12 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
     // loop over all columns of data:
     int sampleCounter = 0, operationCode, popIndex;
     //size_t pos, strStart[numTokensInFormat], strLen[numTokensInFormat];
-    size_t tokenLength, maxTokenLength = 80;
+    size_t tokenLength;
     char checkGTsep1 = '/', checkGTsep2 = '|'; // the only two expected separators
     char allele1, allele2;
 	int DPnoCall = 0, GQnoCall = 0;
     char* charpt, dummyChar;
-    char tokenHolder[maxTokenLength];
+    char tokenHolder[MAX_TOKEN_LENGTH];
     for ( sampleCounter = 0; sampleCounter < numSamples; sampleCounter++ ) {
         
         popIndex = populationReference[ sampleCounter ];
@@ -335,11 +336,11 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
         for ( int tokeni = 0; tokeni < numTokensInFormat; tokeni++ ) {
             VCFfile.get( dummyChar ); // always have to clear the delims
             if ( tokeni < ( numTokensInFormat - 1 ) )
-                VCFfile.get( tokenHolder, maxTokenLength, formatDelim ); // get up to next ':'
+                VCFfile.get( tokenHolder, MAX_TOKEN_LENGTH, formatDelim ); // get up to next ':'
             else if ( sampleCounter < ( numSamples - 1 ) )
-                VCFfile.get( tokenHolder, maxTokenLength, VCF_DELIM ); // get up to next '\t'
+                VCFfile.get( tokenHolder, MAX_TOKEN_LENGTH, VCF_DELIM ); // get up to next '\t'
             else
-                VCFfile.get( tokenHolder, maxTokenLength, '\n' ); // last possible one
+                VCFfile.get( tokenHolder, MAX_TOKEN_LENGTH, '\n' ); // last possible one
             // get operation code:
             operationCode = formatOpsOrder[tokeni];
             tokenLength = strlen( tokenHolder );
@@ -394,6 +395,8 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
                     cerr << "I found: " << tokenHolder[1] << ", and the whole token was:\n\t";
                     
                     fprintf(stderr, "[start]%s[end], length = %lu\n", tokenHolder, tokenLength);
+                    fprintf(stderr, "Sample counter = %i\n", sampleCounter);
+                    
                     cerr << "Aborting ... \n\n";
                     exit(-1);
                 }
@@ -486,14 +489,14 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 }
 
 
-inline void checkFormatToken( string token, int& GTtoken, int& DPtoken, int& GQtoken, int subfieldCount  )
+inline void checkFormatToken( char* token, int& GTtoken, int& DPtoken, int& GQtoken, int subfieldCount  )
 {
     // record sub-field:
-    if ( token == "GT" )
+    if ( token[0] == 'G' && token[1] == 'T' )
         GTtoken = subfieldCount;
-    else if ( token == "DP" )
+    else if ( token[0] == 'D' && token[1] == 'P' )
         DPtoken = subfieldCount;
-    else if ( token == "GQ" )
+    else if ( token[0] == 'G' && token[1] == 'Q' )
         GQtoken = subfieldCount;
 }
 
@@ -702,10 +705,21 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
 }
 
 
+size_t getLength( char *myCharArray )
+{
+    size_t totalLength = 0;
+    
+    while ( myCharArray[totalLength] != '\0' ) {
+        totalLength++;
+    }
+    
+    return totalLength;
+}
+
+
 void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
 {
-    string CHROM, POS, ID, REF, ALT;
-    string QUAL;
+    char *CHROM, *POS, *ID, *REF, *ALT, *QUAL;
     //double QUAL;
     long int dumCol, SNPcount = 0;
     char dummyChar;
@@ -717,6 +731,12 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
     // the latter ints are for parsing GT = genotype, DP = depth,
     // and GQ = quality sub-fields of the FORMAT column
     int formatOpsOrder[maxSubfieldsInFormat]; // for keeping track of how to parse FORMAT efficiently
+    CHROM = new char[MAX_BUFFER_SIZE];
+    POS = new char[MAX_BUFFER_SIZE];
+    ID = new char[MAX_BUFFER_SIZE];
+    REF = new char[MAX_BUFFER_SIZE];
+    ALT = new char[MAX_BUFFER_SIZE];
+    QUAL = new char[MAX_BUFFER_SIZE];
 
 	discardedLinesFile << "VCFfileLinesNotUsed" << endl; // header row
     // work line by line:
@@ -763,6 +783,12 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
     }
 
 	discardedLinesFile.close();
+    delete[] CHROM;
+    delete[] POS;
+    delete[] ID;
+    delete[] REF;
+    delete[] ALT;
+    delete[] QUAL;
 }
 
 
@@ -857,18 +883,21 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
 }
 
 
-bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, char formatDelim, string& CHROM, string& POS, string& ID, string& REF, string& ALT, string& QUAL )
+bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, char formatDelim, char* CHROM, char* POS, char* ID, char* REF, char* ALT, char* QUAL )
 {
     int subfieldCount;  // field counter, starting with index of 1
     double DPval;
     char *buffer = new char[MAX_BUFFER_SIZE];
-    string token;
-    string myDelim(1, formatDelim);  // cast as string for now ...
-    string FILTER, INFO, FORMAT;
-    size_t pos;
+    char *token = new char[MAX_TOKEN_LENGTH];
+    //char myDelim = formatDelim;
+    char *FILTER, *INFO, *FORMAT;
+    size_t pos, REFlength, ALTlength;
     bool keepThis = true;
     char *INFObuffer = new char[MAX_BUFFER_SIZE];
     static bool lookForDPinINFO = true;
+    FILTER = new char[MAX_BUFFER_SIZE];
+    INFO = new char[MAX_BUFFER_SIZE];
+    FORMAT = new char[MAX_BUFFER_SIZE];
 
 
     // loop over fields:
@@ -892,10 +921,12 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     //                break;
     //            case 4:
     VCFfile.get( REF, MAX_BUFFER_SIZE, VCF_DELIM );
+    REFlength = getLength( REF );
     //                break;
     VCFfile.ignore(unsigned(-1), VCF_DELIM);
     //            case 5:
     VCFfile.get( ALT, MAX_BUFFER_SIZE, VCF_DELIM );
+    ALTlength = getLength( ALT );
     VCFfile.ignore(unsigned(-1), VCF_DELIM);
     //                break;
     //            case 6:
@@ -912,7 +943,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     //                fprintf(stdout, "INFObuffer is: \t%s[end]\n", INFObuffer);
     if ( lookForDPinINFO ) {
         DPval = extractDPvalue( INFObuffer, lookForDPinINFO );
-        //                    cout << "\tDPval extracted is: \t" << DPval << endl;
+        //cout << "\tDPval extracted is: \t" << DPval << endl;
         if ( !isnan( DPval ) ) {
             if ( DPval >= OVERALL_DP_MIN_THRESHOLD )
                 keepThis = true;
@@ -923,11 +954,16 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
         DPval = std::numeric_limits<double>::quiet_NaN();
         //                    cout << "\tYo DPval is " << DPval << " bruh\n\n  **************** \n\n";
     }
+    VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
     
     //                col++; // since this case also handles 8!
     //                break;
+    
     //            case 9:
     VCFfile.get( FORMAT, MAX_BUFFER_SIZE, VCF_DELIM );
+    //cout << "\nFORMAT is " << FORMAT << endl;
+    
+    
     //                FORMAT = buffer;
     //                break;
     //            default:
@@ -960,20 +996,48 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
         cout << "** Parsing FORMAT **\n\tsubfieldcount\tpos\ttoken\n" << FORMAT << endl;
         cout << "CHROM: " << CHROM << ", INFO: " << INFO << endl;
 #endif
-        while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
-            subfieldCount++;
-            token = FORMAT.substr(0, pos);
-            // record sub-field if it matches one we're looking for:
+        //
+        pos = 0;
+        char nextChar = FORMAT[pos];
+        int subCount;
+        while ( nextChar != '\0' ) {
+            // get the next subfield:
+            subfieldCount++; // number of subfields processed
+            subCount = 0;
+            do {
+                //cout << "\nnextChar is " << nextChar << endl;
+                token[subCount++] = nextChar; // build it char by char
+                nextChar = FORMAT[++pos]; // get next char
+            } while ( nextChar != formatDelim && nextChar != '\0' );
+            token[subCount] = '\0'; // terminate string
+            // process subfield:
+            //cout << "\ntoken is " << token << endl;
             checkFormatToken( token, GTtoken, DPtoken, GQtoken, subfieldCount );
-#ifdef DEBUG
-                cout << "\t" << subfieldCount << "\t\t" << pos  << "\t" << token << endl;
-#endif
-            FORMAT.erase(0, pos + myDelim.length());
+            
+            if ( nextChar != '\0' )
+                nextChar = FORMAT[++pos]; // get the next character past the delimiter
         }
-        numTokensInFormat = subfieldCount + 1;
-        checkFormatToken( FORMAT, GTtoken, DPtoken, GQtoken, numTokensInFormat ); // check remaining field (after last occurrence of delimiter)
-        // error checking on occurrence of GT:
+        if ( !pos ) {
+            cerr << "\nError in parseMetaColData():\n\tpos = 0 meaning FORMAT has length zero!\n\tFORMAT = " << FORMAT << endl;
+            exit(-1);
+        }
+        numTokensInFormat = subfieldCount;
         errorCheckTokens( GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ );
+            
+//        while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
+//            subfieldCount++;
+//            token = FORMAT.substr(0, pos);
+//            // record sub-field if it matches one we're looking for:
+//            checkFormatToken( token, GTtoken, DPtoken, GQtoken, subfieldCount );
+//#ifdef DEBUG
+//                cout << "\t" << subfieldCount << "\t\t" << pos  << "\t" << token << endl;
+//#endif
+//            FORMAT.erase(0, pos + myDelim.length());
+//        }
+//        numTokensInFormat = subfieldCount + 1;
+//        checkFormatToken( FORMAT, GTtoken, DPtoken, GQtoken, numTokensInFormat ); // check remaining field (after last occurrence of delimiter)
+//        // error checking on occurrence of GT:
+//        errorCheckTokens( GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ );
 
 #ifdef DEBUG
             cout << "\t" << numTokensInFormat << "\t\tlast\t" << FORMAT << "\twhile loop count = " << subfieldCount << endl;
@@ -984,7 +1048,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     }
     // check for bi-allelic SNPs:
     if ( keepThis ) {
-        if ( REF == "N" || ALT == "N" || ALT.length() != 1 ) {
+        if ( REF[0] == 'N' || ALT[0] == 'N' || ALTlength != 1 || REFlength != 1 ) {
             keepThis = false;
         } else {
             keepThis = true;
@@ -999,6 +1063,10 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     
     delete[] INFObuffer;
     delete[] buffer;
+    delete[] FILTER;
+    delete[] INFO;
+    delete[] FORMAT;
+    delete[] token;
 
     return keepThis;
 }
