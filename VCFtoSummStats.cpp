@@ -27,6 +27,7 @@
 #include <map>
 #include <time.h>
 #include <math.h>
+#include <cstring>
 using namespace std;
 
 // for boost libraries for decompressing:
@@ -39,8 +40,9 @@ using namespace std;
 const int NUM_META_COLS = 9;    // exected number of fields of data prior to samples in VCF
 const char FORMAT_DELIM_DEFAULT = ':'; // expected delimiter of subfields of FORMAT column of VCF
 const int MAX_SUBFIELDS_IN_FORMAT_DEFAULT = 30;
-const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, SKIP_OPS_CODE = 3;
+const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, PL_OPS_CODE = 3, SKIP_OPS_CODE = 9;
     // the latter are FORMAT parsing codes
+const int ENTRIES_IN_PL = 3; // number of separate numbers in PL part of format
 const string MISSING_DATA_INDICATOR = "NA";
 bool VERBOSE = false;
 const size_t MAX_BUFFER_SIZE = 512; // length of char arrays used as buffers
@@ -293,10 +295,11 @@ inline int calculateMedian( int values[], int n, int ignoreFirst )
 }
 
 
-void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
+void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool lookForDP, bool lookForGQ, bool lookForPL, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
 {
     int homoRefCount = 0, homoAltCount = 0, hetCount = 0, altAlleleCounts[numPopulations];
     int validSampleCounts[numPopulations], DPvalues[numSamples], GQvalues[numSamples];
+    int PLvalues[ (numSamples * ENTRIES_IN_PL) ];
     // initialize all array values to zero:
     for ( int i = 0; i < numPopulations; i++ ) {
         altAlleleCounts[i] = 0;
@@ -309,6 +312,10 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
     if ( lookForGQ ) {
         for ( int i = 0; i < numSamples; i++ )
             GQvalues[i] = 0;
+    }
+    if ( lookForPL ) {
+        for ( int i = 0; i < (numSamples * ENTRIES_IN_PL); i++ )
+            PLvalues[i] = 0;
     }
 
     // loop over all columns of data:
@@ -432,6 +439,10 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 					GQvalues[sampleCounter] = stoi(tokenHolder);
 				}
 //                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GQ is " << token << endl;
+            } else if ( operationCode == PL_OPS_CODE && lookForPL ) {
+                
+                parsePL( tokenHolder );
+                
             }
 
             // otherwise just skip it
@@ -489,7 +500,7 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 }
 
 
-inline void checkFormatToken( char* token, int& GTtoken, int& DPtoken, int& GQtoken, int subfieldCount  )
+inline void checkFormatToken( char* token, int& GTtoken, int& DPtoken, int& GQtoken, int& PLtoken, int subfieldCount  )
 {
     // record sub-field:
     if ( token[0] == 'G' && token[1] == 'T' )
@@ -498,6 +509,8 @@ inline void checkFormatToken( char* token, int& GTtoken, int& DPtoken, int& GQto
         DPtoken = subfieldCount;
     else if ( token[0] == 'G' && token[1] == 'Q' )
         GQtoken = subfieldCount;
+    else if ( token[0] == 'P' && token[1] == 'L' )
+        PLtoken = subfieldCount;
 }
 
 
@@ -548,7 +561,7 @@ void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::in
 }
 
 
-void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, bool lookForDP, bool lookForGQ, char formatDelim, int formatOpsOrder[], int maxSubfieldsInFormat )
+void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool lookForDP, bool lookForGQ, bool lookForPL, char formatDelim, int formatOpsOrder[], int maxSubfieldsInFormat )
 {
     // first a safety check:
     if ( maxSubfieldsInFormat < numTokensInFormat ) {
@@ -590,6 +603,8 @@ void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, i
             formatOpsOrder[i] = DP_OPS_CODE;
         } else if ( index == GQtoken ) {
             formatOpsOrder[i] = GQ_OPS_CODE;
+        } else if ( index == PLtoken ) {
+            formatOpsOrder[i] = PL_OPS_CODE;
         } else {
             formatOpsOrder[i] = SKIP_OPS_CODE;
         }
@@ -605,7 +620,7 @@ void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, i
 }
 
 
-inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookForDP, bool& lookForGQ )
+inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool& lookForDP, bool& lookForGQ, bool& lookForPL )
 {
     if ( GTtoken == -1 ) { // -1 is flag for not set
         cout << "\nError!  GT subfield was not found in FORMAT.\nPlease double-check your format column.\n";
@@ -628,6 +643,13 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, bool& lookF
         lookForGQ = false;
     } else {
         lookForGQ = true;
+    }
+    if ( PLtoken == -1 ) { // -1 is flag for not set
+        cout << "\n*** WARNING!  PL subfield was not found in FORMAT.\n";
+        cout << "Any results depending upon PL scores will be filled with NA.\n";
+        lookForPL = false;
+    } else {
+        lookForPL = true;
     }
 }
 
@@ -705,7 +727,7 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
 }
 
 
-size_t getLength( char *myCharArray )
+inline size_t getLength( char *myCharArray )
 {
     size_t totalLength = 0;
     
@@ -723,8 +745,8 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
     //double QUAL;
     long int dumCol, SNPcount = 0;
     char dummyChar;
-    bool keepThis, checkFormat = true, lookForDP, lookForGQ;
-    int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1;
+    bool keepThis, checkFormat = true, lookForDP, lookForGQ, lookForPL;
+    int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1, PLtoken = -1;
 	string discardedLinesFileName = vcfName + "_discardedLineNums.txt";
 	ofstream discardedLinesFile( discardedLinesFileName, ostream::out );
     // string oneLine; // old way using linestream
@@ -752,10 +774,10 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
         // lineStream.str( oneLine );
 
         // work with meta-col data:
-        keepThis = parseMetaColData( VCFfile, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, CHROM, POS, ID, REF, ALT, QUAL);
+        keepThis = parseMetaColData( VCFfile, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, CHROM, POS, ID, REF, ALT, QUAL);
 
         if ( checkFormat ) {
-            determineFormatOpsOrder( numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, formatOpsOrder, maxSubfieldsInFormat );
+            determineFormatOpsOrder( numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, formatOpsOrder, maxSubfieldsInFormat );
         }
 
         if ( keepThis ) {
@@ -764,7 +786,7 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
             outputFile << VCFfileLineCount << "\t" << CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << "\t" << QUAL;
 
             // let's calculate and store data for one line, i.e., one SNP at a time:
-            calculateSummaryStats( VCFfile, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference );
+            calculateSummaryStats( VCFfile, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference );
 
             // add end of line (done with this line):
             outputFile << endl;
@@ -883,7 +905,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
 }
 
 
-bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, bool& lookForDP, bool& lookForGQ, char formatDelim, char* CHROM, char* POS, char* ID, char* REF, char* ALT, char* QUAL )
+bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, int& PLtoken, bool& lookForDP, bool& lookForGQ, bool& lookForPL, char formatDelim, char* CHROM, char* POS, char* ID, char* REF, char* ALT, char* QUAL )
 {
     int subfieldCount;  // field counter, starting with index of 1
     double DPval;
@@ -1012,7 +1034,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
             token[subCount] = '\0'; // terminate string
             // process subfield:
             //cout << "\ntoken is " << token << endl;
-            checkFormatToken( token, GTtoken, DPtoken, GQtoken, subfieldCount );
+            checkFormatToken( token, GTtoken, DPtoken, GQtoken, PLtoken, subfieldCount );
             
             if ( nextChar != '\0' )
                 nextChar = FORMAT[++pos]; // get the next character past the delimiter
@@ -1022,7 +1044,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
             exit(-1);
         }
         numTokensInFormat = subfieldCount;
-        errorCheckTokens( GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ );
+        errorCheckTokens( GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL );
             
 //        while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
 //            subfieldCount++;
@@ -1040,8 +1062,9 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 //        errorCheckTokens( GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ );
 
 #ifdef DEBUG
-            cout << "\t" << numTokensInFormat << "\t\tlast\t" << FORMAT << "\twhile loop count = " << subfieldCount << endl;
-            cout << "GTtoken = " << GTtoken << "; DPtoken = " << DPtoken << "; GQtoken = " << GQtoken << endl;
+        cout << "\t" << numTokensInFormat << "\t\tlast\t" << FORMAT << "\twhile loop count = " << subfieldCount << endl;
+        cout << "GTtoken = " << GTtoken << "; DPtoken = " << DPtoken << "; GQtoken = " << GQtoken << "; PLtoken = " << PLtoken << "; lookForPL = " << lookForPL << endl;
+        
 #endif
 
 
@@ -1069,6 +1092,25 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     delete[] token;
 
     return keepThis;
+}
+
+
+inline void parsePL( char* tokenHolder )
+{
+    
+    
+#ifdef DEBUG
+    cout << "\ntokenHolder = " << tokenHolder << endl;
+    char* tempCharArray = strtok(tokenHolder, ",");
+    int i = 0;
+    while ( tempCharArray ) {
+        cout << "\ttoken part " << ++i << ":\t" << tempCharArray << endl;
+        tempCharArray = strtok(NULL, ",");
+    }
+    cout << endl;
+    exit(0);
+#endif
+    
 }
 
 
