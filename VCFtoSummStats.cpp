@@ -1098,6 +1098,20 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 inline void parsePL( char* tokenHolder )
 {
     
+    // here's the description from the VCF file specification, pp. 10-11 of
+    // http://samtools.github.io/hts-specs/VCFv4.3.pdf, accessed 7/9/19:
+    /*
+     GL (Float): Genotype likelihoods comprised of comma
+     separated floating point log10-scaled
+     likelihoods for all possible genotypes given the set
+     of alleles defined in the REF and ALT fields.
+     In presence of the GT field the same ploidy is expected;
+     without GT field, diploidy is assumed.
+     
+     PL (Integer): The phred-scaled genotype likelihoods rounded
+     to the closest integer, and otherwise defined precisely as
+     the GL field.
+     */
     
 #ifdef DEBUG
     cout << "\ntokenHolder = " << tokenHolder << endl;
