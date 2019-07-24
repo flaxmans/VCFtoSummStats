@@ -6,9 +6,9 @@ LFLAGS = -lboost_iostreams
 
 # conditional compiling:
 DEBUG_MODE?=n
-ifeq "$(DEBUG_MODE)" "Y" 
+ifeq "$(DEBUG_MODE)" "Y"
         CCFLAGS=-g -DDEBUG
-else 
+else
         CCFLAGS=-O3
 endif
 
@@ -22,5 +22,3 @@ ${TARGET}: ${TARGET}.cpp ${TARGET}.hpp
 # rule for cleaning up everything:
 clean:
 	rm -f ${TARGET}
-
-

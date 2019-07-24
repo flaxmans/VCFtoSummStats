@@ -1114,15 +1114,15 @@ inline void parsePL( char* tokenHolder )
      */
     
 #ifdef DEBUG
-    cout << "\ntokenHolder = " << tokenHolder << endl;
-    char* tempCharArray = strtok(tokenHolder, ",");
-    int i = 0;
-    while ( tempCharArray ) {
-        cout << "\ttoken part " << ++i << ":\t" << tempCharArray << endl;
-        tempCharArray = strtok(NULL, ",");
-    }
-    cout << endl;
-    exit(0);
+    //cout << "\ntokenHolder = " << tokenHolder << endl;
+    //char* tempCharArray = strtok(tokenHolder, ",");
+    //int i = 0;
+    //while ( tempCharArray ) {
+    //    cout << "\ttoken part " << ++i << ":\t" << tempCharArray << endl;
+    //    tempCharArray = strtok(NULL, ",");
+    //}
+    //cout << endl;
+    //exit(0);
 #endif
     
 }
