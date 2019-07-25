@@ -45,11 +45,13 @@ const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, PL_OPS_CODE = 3, SK
 const int ENTRIES_IN_PL = 3; // number of separate numbers in PL part of format
 const string MISSING_DATA_INDICATOR = "NA";
 bool VERBOSE = false;
-const size_t MAX_BUFFER_SIZE = 512; // length of char arrays used as buffers
+const size_t TOKEN_BUFFER_SIZE = 512; // length of char arrays used as buffers
 const char VCF_DELIM = '\t'; // VCF files must be tab delimited
 const double OVERALL_DP_MIN_THRESHOLD_DEFAULT = 2.0;
 double OVERALL_DP_MIN_THRESHOLD;
-size_t MAX_TOKEN_LENGTH = 80;
+size_t SMALL_TOKEN_SIZE_BUFFER = 80;
+const size_t MY_BIG_BUFFER_SIZE_DEFAULT = 1000000;
+size_t MY_BIG_BUFFER_SIZE;
 
 
 int main(int argc, char *argv[])
@@ -295,7 +297,7 @@ inline int calculateMedian( int values[], int n, int ignoreFirst )
 }
 
 
-void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool lookForDP, bool lookForGQ, bool lookForPL, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
+void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool lookForDP, bool lookForGQ, bool lookForPL, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
 {
     int homoRefCount = 0, homoAltCount = 0, hetCount = 0, altAlleleCounts[numPopulations];
     int validSampleCounts[numPopulations], DPvalues[numSamples], GQvalues[numSamples];
@@ -325,12 +327,12 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
     char checkGTsep1 = '/', checkGTsep2 = '|'; // the only two expected separators
     char allele1, allele2;
 	int DPnoCall = 0, GQnoCall = 0;
-    char* charpt, dummyChar;
-    char tokenHolder[MAX_TOKEN_LENGTH];
+    char dummyChar;
+    char tokenHolder[SMALL_TOKEN_SIZE_BUFFER];
     for ( sampleCounter = 0; sampleCounter < numSamples; sampleCounter++ ) {
-        
+
         popIndex = populationReference[ sampleCounter ];
-        
+
 //        VCFfile.get( dummyChar );
 //#ifdef DEBUG
 //        if ( dummyChar != '\t' ) {
@@ -338,17 +340,18 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 //            cerr << "dummyChar = " << dummyChar << endl;
 //        }
 //#endif
-        
+
         // parse the current sample:
         for ( int tokeni = 0; tokeni < numTokensInFormat; tokeni++ ) {
-            VCFfile.get( dummyChar ); // always have to clear the delims
+            // VCFfile.get( dummyChar ); // always have to clear the delims old
             if ( tokeni < ( numTokensInFormat - 1 ) )
-                VCFfile.get( tokenHolder, MAX_TOKEN_LENGTH, formatDelim ); // get up to next ':'
+                getNextField( tokenHolder, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, formatDelim, totalCharsInLastRead ); // old: VCFfile.get( tokenHolder, SMALL_TOKEN_SIZE_BUFFER, formatDelim ); // get up to next ':'
             else if ( sampleCounter < ( numSamples - 1 ) )
-                VCFfile.get( tokenHolder, MAX_TOKEN_LENGTH, VCF_DELIM ); // get up to next '\t'
+                getNextField( tokenHolder, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead ); // old: VCFfile.get( tokenHolder, SMALL_TOKEN_SIZE_BUFFER, VCF_DELIM ); // get up to next '\t'
             else
-                VCFfile.get( tokenHolder, MAX_TOKEN_LENGTH, '\n' ); // last possible one
+                getNextField( tokenHolder, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, '\n', totalCharsInLastRead ); // old; VCFfile.get( tokenHolder, SMALL_TOKEN_SIZE_BUFFER, '\n' ); // last possible one
             // get operation code:
+#ifndef ONLYGET
             operationCode = formatOpsOrder[tokeni];
             tokenLength = strlen( tokenHolder );
             if ( operationCode == GT_OPS_CODE ) {
@@ -394,16 +397,16 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 
                 // now recording allele counts:
 
-//#ifdef DEBUG
+#ifdef DEBUG
 
                 if ( tokenHolder[1] != checkGTsep1 && tokenHolder[1] != checkGTsep2 ) {
                     cerr << "\nError in calculateSummaryStats():\n\tGT token ";
                     cerr << "does not have expected character (" << checkGTsep1 << " or " << checkGTsep2 << ") between alleles.\n\t";
                     cerr << "I found: " << tokenHolder[1] << ", and the whole token was:\n\t";
-                    
+
                     fprintf(stderr, "[start]%s[end], length = %lu\n", tokenHolder, tokenLength);
                     fprintf(stderr, "Sample counter = %i\n", sampleCounter);
-                    
+
                     cerr << "Aborting ... \n\n";
                     exit(-1);
                 }
@@ -416,7 +419,7 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 //                        cout << "\t" << validSampleCounts[j] << ", " << altAlleleCounts[j];
 //                    cout << endl;
 //                }
-//#endif
+#endif
 
             } else if ( operationCode == DP_OPS_CODE && lookForDP ) {
                 // add the DP data to DP array
@@ -425,7 +428,7 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 					DPnoCall++;
 				} else {
                     //fprintf(stdout, "\nDP tokenHolder is: [%s] with length %lu\n", tokenHolder, tokenLength);
-                	DPvalues[sampleCounter] = stoi(tokenHolder);
+                	DPvalues[sampleCounter] = atoi(tokenHolder);
 				}
 
 //                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", DP is " << token << endl;
@@ -436,23 +439,24 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
 					GQnoCall++;
 				} else {
                     //fprintf(stdout, "\nGQ tokenHolder is: [%s] with length %lu\n", tokenHolder, tokenLength);
-					GQvalues[sampleCounter] = stoi(tokenHolder);
+					GQvalues[sampleCounter] = atoi(tokenHolder);
 				}
 //                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GQ is " << token << endl;
             } else if ( operationCode == PL_OPS_CODE && lookForPL ) {
-                
+
                 parsePL( tokenHolder );
-                
+
             }
 
             // otherwise just skip it
 
             // delete the substring
             //currentSample.erase(0, pos + formatDelim.length()); // old way replaced by prior for loop
+#endif
         }  // end of loop over tokens in sample
 
     }  // end of for() loop over numSamples; used to be while() loop over lineStream
-
+#ifndef ONLYGET
     // error checking:
     if ( sampleCounter != numSamples ) {
         cout << "\nError in calculateSummaryStats():\n\tline parsing did not give numSamples number of loops.\n\t";
@@ -494,7 +498,7 @@ void calculateSummaryStats( istream& VCFfile, ofstream& outputFile, int numToken
         }
         outputFile << "\t" << freq << "\t" << validSampleCounts[i];
     }
-
+#endif
     // outputFile << endl;  not needed here; this is done in parseActualData()
 
 }
@@ -686,7 +690,7 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
     bool DPfound = false;
     char holdValueAsChar[80];
     double DPval;
-    
+
     do {
         if ( INFObuffer[count] == 'D' ) {
             // could be DP
@@ -713,37 +717,97 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
                 }
             }
         }
-    } while ( (INFObuffer[++count] != '\0') && (count < MAX_BUFFER_SIZE) && !DPfound );
-    
+    } while ( (INFObuffer[++count] != '\0') && (count < TOKEN_BUFFER_SIZE) && !DPfound );
+
     if ( !DPfound ) {
         cout << "\nWarning!!  No DP found in INFO field...\n";
         lookForDPinINFO = false;
         DPval = std::numeric_limits<double>::quiet_NaN();
 //        cout << "\n\tYo it's nan: " << DPval << endl;
     }
-    
-    
+
+
     return DPval;
+}
+
+
+inline void fillBigCharBuffer( char* bigCharBuffer, istream& VCFfile, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead )
+{
+    // read the next MY_BIG_BUFFER_SIZE chars to the start of the buffer
+    VCFfile.read( bigCharBuffer, MY_BIG_BUFFER_SIZE );
+
+    // reset counters
+    bigBuffPt = bigCharBuffer; // point to beginning of array
+    buffPointPos = 0; // index position reset
+
+    if ( VCFfile.eof() ) {
+      // end of file reached
+      totalCharsInLastRead = VCFfile.gcount();
+    }
 }
 
 
 inline size_t getLength( char *myCharArray )
 {
     size_t totalLength = 0;
-    
+
     while ( myCharArray[totalLength] != '\0' ) {
         totalLength++;
     }
-    
+
     return totalLength;
+}
+
+
+inline void getNextField( char* fieldArray, char* bigCharBuffer, istream& VCFfile, char*& bigBuffPt, long int& buffPointPos, char delimiter, long int& totalCharsInLastRead )
+{
+  // function to get next set of chars up to next tab = VCF_DELIM
+#ifdef DEBUG
+  size_t pos = 0;
+#endif
+
+  while ( *bigBuffPt != delimiter ) {
+    *fieldArray++ = *bigBuffPt++; // fieldArray could be CHROM, INFO, FORMAT, etc...
+    if ( ++buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() ) {
+      fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+    }
+
+#ifdef DEBUG
+    pos++; // count how many we've done
+#endif
+
+  }
+  *fieldArray = '\0'; // terminate with null character
+  if ( *(fieldArray - 1) == '\r' ) {
+    *(fieldArray - 1) = '\0'; // in case of CR LF line endings where CR was stored in field array prior to encountering LF
+  }
+  // now move past delimiter to next char in buffer; allow for spaces and different line endings
+  do {
+    ++bigBuffPt;
+    if ( ++buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() )
+      fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+  } while ( *bigBuffPt == '\n' || *bigBuffPt == ' ' || *bigBuffPt == '\r' );
+
+
+#ifdef DEBUG
+  if ( pos == 0 ) {
+    cerr << "\nError in getNextField():\n\tzero length field found!!  Here are a few chars from the bigCharBuffer:\npos\tchar\n";
+    for ( int i = -10; i < 10; i++ ) {
+      if ( (buffPointPos + i) >= 0 && (buffPointPos + i) < MY_BIG_BUFFER_SIZE )
+        fprintf(stderr, "%li\t%c\n", (buffPointPos + i), *(bigBuffPt+i) );
+    }
+    exit(-1);
+  }
+#endif
 }
 
 
 void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
 {
-    char *CHROM, *POS, *ID, *REF, *ALT, *QUAL;
+    char *CHROM, *POS, *ID, *REF, *ALT, *QUAL, *bigCharBuffer, *bigBuffPt;
+    char *FILTER, *INFO, *FORMAT;
     //double QUAL;
-    long int dumCol, SNPcount = 0;
+    long int dumCol, SNPcount = 0, buffPointPos, totalCharsInLastRead = 0;
     char dummyChar;
     bool keepThis, checkFormat = true, lookForDP, lookForGQ, lookForPL;
     int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1, PLtoken = -1;
@@ -753,56 +817,69 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
     // the latter ints are for parsing GT = genotype, DP = depth,
     // and GQ = quality sub-fields of the FORMAT column
     int formatOpsOrder[maxSubfieldsInFormat]; // for keeping track of how to parse FORMAT efficiently
-    CHROM = new char[MAX_BUFFER_SIZE];
-    POS = new char[MAX_BUFFER_SIZE];
-    ID = new char[MAX_BUFFER_SIZE];
-    REF = new char[MAX_BUFFER_SIZE];
-    ALT = new char[MAX_BUFFER_SIZE];
-    QUAL = new char[MAX_BUFFER_SIZE];
+    CHROM = new char[TOKEN_BUFFER_SIZE];
+    POS = new char[TOKEN_BUFFER_SIZE];
+    ID = new char[TOKEN_BUFFER_SIZE];
+    REF = new char[TOKEN_BUFFER_SIZE];
+    ALT = new char[TOKEN_BUFFER_SIZE];
+    QUAL = new char[TOKEN_BUFFER_SIZE];
+    FILTER = new char[TOKEN_BUFFER_SIZE];
+    INFO = new char[TOKEN_BUFFER_SIZE];
+    FORMAT = new char[TOKEN_BUFFER_SIZE];
+
+    bigCharBuffer = new char[MY_BIG_BUFFER_SIZE];
 
 	discardedLinesFile << "VCFfileLinesNotUsed" << endl; // header row
     // work line by line:
-    // stringstream lineStream( "", ios_base::in | ios_base::out ); old way
     // used to be while( getline ... )
-    while ( VCFfile.get( dummyChar ) ) {
-        VCFfile.putback( dummyChar ); // replace the one that get() got
+    // fill the buffer prior to entering the line by line loop:
+    fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+#ifdef DEBUG
+    if ( bigBuffPt != bigCharBuffer ) {
+      cerr << "\nError with fillBigCharBuffer():\n\tpointers not reset as you expected!!\n\n";
+      exit(-1);
+    }
+#endif
+    do {
+        // VCFfile.putback( dummyChar ); // replace the one that get() got
         SNPcount++; // counter of how many SNP lines have been processed
         VCFfileLineCount++; // counter of how many LINES of VCF file have been processed
 
         // turn each line into a string stream for easy parsing by whitespace:
-        // lineStream.clear();
-        // lineStream.str( oneLine );
+        // lineStream.clear(); // very old version
+        // lineStream.str( oneLine ); // very old version
 
         // work with meta-col data:
-        keepThis = parseMetaColData( VCFfile, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, CHROM, POS, ID, REF, ALT, QUAL);
-
+        keepThis = parseMetaColData( VCFfile, bigCharBuffer, bigBuffPt, buffPointPos, totalCharsInLastRead, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO, FORMAT);
+#ifndef ONLYGET
         if ( checkFormat ) {
             determineFormatOpsOrder( numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, formatOpsOrder, maxSubfieldsInFormat );
         }
-
+#endif
         if ( keepThis ) {
             // it is a biallelic SNP
             // print out meta fields:
+#ifndef ONLYGET
             outputFile << VCFfileLineCount << "\t" << CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << "\t" << QUAL;
-
+#endif
             // let's calculate and store data for one line, i.e., one SNP at a time:
-            calculateSummaryStats( VCFfile, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference );
+            calculateSummaryStats( VCFfile, bigCharBuffer, bigBuffPt, buffPointPos, totalCharsInLastRead, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference );
 
             // add end of line (done with this line):
             outputFile << endl;
 		} else {
 			discardedLinesFile << VCFfileLineCount << endl;
-            
+
 		}
         VCFfile.ignore(unsigned(-1), '\n'); // go to end of line
-        
+
 
         if ( numFormats == 1 ) {
             checkFormat = false; // not needed after first SNP
         }
 //        if ( SNPcount == 2 )
 //            exit(0);
-    }
+} while ( !VCFfile.eof() );
 
 	discardedLinesFile.close();
     delete[] CHROM;
@@ -811,6 +888,11 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
     delete[] REF;
     delete[] ALT;
     delete[] QUAL;
+    delete[] FILTER;
+    delete[] INFO;
+    delete[] FORMAT;
+
+    delete[] bigCharBuffer;
 }
 
 
@@ -829,10 +911,11 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
     popFileHeader = false;  // default is NO header
     numFormats = 1;         // default is same FORMAT for every SNP
     OVERALL_DP_MIN_THRESHOLD = OVERALL_DP_MIN_THRESHOLD_DEFAULT;
+    MY_BIG_BUFFER_SIZE = MY_BIG_BUFFER_SIZE_DEFAULT;
 
 	// parse command line options:
 	int flag;
-    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:vd:")) != -1) {
+    while ((flag = getopt(argc, argv, "V:P:Hf:D:S:vd:B:")) != -1) {
 		switch (flag) {
 			case 'V':
 				vcfName = optarg;
@@ -861,6 +944,10 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
             case 'd':
                 OVERALL_DP_MIN_THRESHOLD = stod(optarg);
                 break;
+            case 'B':
+                MY_BIG_BUFFER_SIZE = atoi(optarg);
+                break;
+
             default: /* '?' */
 				exit(-1);
 		}
@@ -870,7 +957,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
         cerr << message;
         exit(-1);
     }
-    
+
     cout << "\nOVERALL_DP_MIN_THRESHOLD is " << OVERALL_DP_MIN_THRESHOLD << endl;
 
     parsePopulationDesigFile( popFileName, numSamples, numPopulations, mapOfPopulations, popFileHeader );
@@ -905,66 +992,76 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
 }
 
 
-bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, int& PLtoken, bool& lookForDP, bool& lookForGQ, bool& lookForPL, char formatDelim, char* CHROM, char* POS, char* ID, char* REF, char* ALT, char* QUAL )
+bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead, long int SNPcount, bool checkFormat, int& numTokensInFormat, int& GTtoken, int& DPtoken, int& GQtoken, int& PLtoken, bool& lookForDP, bool& lookForGQ, bool& lookForPL, char formatDelim, char* CHROM, char* POS, char* ID, char* REF, char* ALT, char* QUAL, char* FILTER, char* INFO, char *FORMAT )
 {
     int subfieldCount;  // field counter, starting with index of 1
     double DPval;
-    char *buffer = new char[MAX_BUFFER_SIZE];
-    char *token = new char[MAX_TOKEN_LENGTH];
+    // char *buffer = new char[TOKEN_BUFFER_SIZE];
     //char myDelim = formatDelim;
-    char *FILTER, *INFO, *FORMAT;
+    // char *FILTER, *INFO, *FORMAT;
     size_t pos, REFlength, ALTlength;
     bool keepThis = true;
-    char *INFObuffer = new char[MAX_BUFFER_SIZE];
     static bool lookForDPinINFO = true;
-    FILTER = new char[MAX_BUFFER_SIZE];
-    INFO = new char[MAX_BUFFER_SIZE];
-    FORMAT = new char[MAX_BUFFER_SIZE];
 
 
     // loop over fields:
     int col = 1;
     //while( col <= NUM_META_COLS ) {
     //    for ( int col = 1; col <= NUM_META_COLS; col++ ) {
-    //VCFfile.get( buffer, MAX_BUFFER_SIZE, VCF_DELIM );
+    //VCFfile.get( buffer, TOKEN_BUFFER_SIZE, VCF_DELIM );
     //fprintf(stdout, "col = %i \t buffer = %s\n", col, buffer);
     //switch ( col ) {
     //            case 1:
-    VCFfile.get( CHROM, MAX_BUFFER_SIZE, VCF_DELIM );
-    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    // VCFfile.get( CHROM, TOKEN_BUFFER_SIZE, VCF_DELIM ); // old way
+    // VCFfile.ignore(unsigned(-1), VCF_DELIM);  // old way
+    getNextField( CHROM, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
+
     //                break;
     //            case 2:
-    VCFfile.get( POS, MAX_BUFFER_SIZE, VCF_DELIM );
-    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    // VCFfile.get( POS, TOKEN_BUFFER_SIZE, VCF_DELIM ); // old way
+    // VCFfile.ignore(unsigned(-1), VCF_DELIM); // old way
+    getNextField( POS, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
+
     //                break;
     //            case 3:
-    VCFfile.get( ID, MAX_BUFFER_SIZE, VCF_DELIM );
-    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    // VCFfile.get( ID, TOKEN_BUFFER_SIZE, VCF_DELIM );
+    // VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    getNextField( ID, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
+
     //                break;
     //            case 4:
-    VCFfile.get( REF, MAX_BUFFER_SIZE, VCF_DELIM );
-    REFlength = getLength( REF );
+    // VCFfile.get( REF, TOKEN_BUFFER_SIZE, VCF_DELIM );
+    // REFlength = getLength( REF );
+    getNextField( REF, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
     //                break;
-    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    // VCFfile.ignore(unsigned(-1), VCF_DELIM);
+
     //            case 5:
-    VCFfile.get( ALT, MAX_BUFFER_SIZE, VCF_DELIM );
+    // VCFfile.get( ALT, TOKEN_BUFFER_SIZE, VCF_DELIM );
+    getNextField( ALT, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
     ALTlength = getLength( ALT );
-    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    // VCFfile.ignore(unsigned(-1), VCF_DELIM);
+
     //                break;
     //            case 6:
-    VCFfile.get( QUAL, MAX_BUFFER_SIZE, VCF_DELIM );
-    VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    // VCFfile.get( QUAL, TOKEN_BUFFER_SIZE, VCF_DELIM );
+    // VCFfile.ignore(unsigned(-1), VCF_DELIM);
+    getNextField( QUAL, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
     //QUAL = stod(buffer);
     //                break;
+
     //            case 7:                 // this also handles 8!
-    VCFfile.get( FILTER, MAX_BUFFER_SIZE, VCF_DELIM );
+    // VCFfile.get( FILTER, TOKEN_BUFFER_SIZE, VCF_DELIM );
+    getNextField( FILTER, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
+
     // need to prepare to handle INFO column next
-    VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
-    VCFfile.get( INFObuffer, MAX_BUFFER_SIZE, VCF_DELIM );
-    
-    //                fprintf(stdout, "INFObuffer is: \t%s[end]\n", INFObuffer);
+    // VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
+    //VCFfile.get( INFO, TOKEN_BUFFER_SIZE, VCF_DELIM );
+    getNextField( INFO, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
+
+    //                fprintf(stdout, "INFO is: \t%s[end]\n", INFO);
     if ( lookForDPinINFO ) {
-        DPval = extractDPvalue( INFObuffer, lookForDPinINFO );
+        DPval = extractDPvalue( INFO, lookForDPinINFO );
         //cout << "\tDPval extracted is: \t" << DPval << endl;
         if ( !isnan( DPval ) ) {
             if ( DPval >= OVERALL_DP_MIN_THRESHOLD )
@@ -976,16 +1073,17 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
         DPval = std::numeric_limits<double>::quiet_NaN();
         //                    cout << "\tYo DPval is " << DPval << " bruh\n\n  **************** \n\n";
     }
-    VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
-    
+    // VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
+
     //                col++; // since this case also handles 8!
     //                break;
-    
+
     //            case 9:
-    VCFfile.get( FORMAT, MAX_BUFFER_SIZE, VCF_DELIM );
+    // VCFfile.get( FORMAT, TOKEN_BUFFER_SIZE, VCF_DELIM );
+    getNextField( FORMAT, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
     //cout << "\nFORMAT is " << FORMAT << endl;
-    
-    
+
+
     //                FORMAT = buffer;
     //                break;
     //            default:
@@ -1001,7 +1099,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     //
     //    }
     //
-    
+
     // status report:
     if ( VERBOSE ) {
         if ( SNPcount % 10000 == 0 ) {
@@ -1011,6 +1109,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
     }
 
     if ( checkFormat ) {
+        char *token = new char[SMALL_TOKEN_SIZE_BUFFER];
         subfieldCount = 0;
         // string splitting, with thanks to:
         // https://stackoverflow.com/questions/14265581/parse-split-a-string-in-c-using-string-delimiter-standard-c
@@ -1035,7 +1134,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
             // process subfield:
             //cout << "\ntoken is " << token << endl;
             checkFormatToken( token, GTtoken, DPtoken, GQtoken, PLtoken, subfieldCount );
-            
+
             if ( nextChar != '\0' )
                 nextChar = FORMAT[++pos]; // get the next character past the delimiter
         }
@@ -1045,7 +1144,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
         }
         numTokensInFormat = subfieldCount;
         errorCheckTokens( GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL );
-            
+
 //        while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
 //            subfieldCount++;
 //            token = FORMAT.substr(0, pos);
@@ -1064,11 +1163,13 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 #ifdef DEBUG
         cout << "\t" << numTokensInFormat << "\t\tlast\t" << FORMAT << "\twhile loop count = " << subfieldCount << endl;
         cout << "GTtoken = " << GTtoken << "; DPtoken = " << DPtoken << "; GQtoken = " << GQtoken << "; PLtoken = " << PLtoken << "; lookForPL = " << lookForPL << endl;
-        
+
 #endif
 
+        delete[] token;
 
-    }
+
+    } // close on if(checkFormat)
     // check for bi-allelic SNPs:
     if ( keepThis ) {
         if ( REF[0] == 'N' || ALT[0] == 'N' || ALTlength != 1 || REFlength != 1 ) {
@@ -1083,13 +1184,9 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 //        cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
 //#endif
 //    }
-    
-    delete[] INFObuffer;
-    delete[] buffer;
-    delete[] FILTER;
-    delete[] INFO;
-    delete[] FORMAT;
-    delete[] token;
+
+    // delete[] INFObuffer;
+    // delete[] buffer;
 
     return keepThis;
 }
@@ -1097,7 +1194,7 @@ bool parseMetaColData( istream& VCFfile, long int SNPcount, bool checkFormat, in
 
 inline void parsePL( char* tokenHolder )
 {
-    
+
     // here's the description from the VCF file specification, pp. 10-11 of
     // http://samtools.github.io/hts-specs/VCFv4.3.pdf, accessed 7/9/19:
     /*
@@ -1107,12 +1204,12 @@ inline void parsePL( char* tokenHolder )
      of alleles defined in the REF and ALT fields.
      In presence of the GT field the same ploidy is expected;
      without GT field, diploidy is assumed.
-     
+
      PL (Integer): The phred-scaled genotype likelihoods rounded
      to the closest integer, and otherwise defined precisely as
      the GL field.
      */
-    
+
 #ifdef DEBUG
     //cout << "\ntokenHolder = " << tokenHolder << endl;
     //char* tempCharArray = strtok(tokenHolder, ",");
@@ -1124,7 +1221,7 @@ inline void parsePL( char* tokenHolder )
     //cout << endl;
     //exit(0);
 #endif
-    
+
 }
 
 
