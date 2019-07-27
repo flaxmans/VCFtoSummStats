@@ -38,6 +38,10 @@ inline size_t getLength( char *myCharArray );
 
 inline void getNextField( char* fieldArray, char* bigCharBuffer, istream& VCFfile, char*& bigBuffPt, long int& buffPointPos, char delimiter, long int& totalCharsInLastRead );
 
+inline void getNextFieldLineEnd( char* fieldArray, char* bigCharBuffer, istream& VCFfile, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead );
+
+inline void goToStartOfNextLine( char* bigCharBuffer, istream& VCFfile, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead );
+
 void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName );
 
 void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, char& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations );

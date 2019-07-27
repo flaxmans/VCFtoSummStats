@@ -41,7 +41,7 @@ const int NUM_META_COLS = 9;    // exected number of fields of data prior to sam
 const char FORMAT_DELIM_DEFAULT = ':'; // expected delimiter of subfields of FORMAT column of VCF
 const int MAX_SUBFIELDS_IN_FORMAT_DEFAULT = 30;
 const int GT_OPS_CODE = 0, DP_OPS_CODE = 1, GQ_OPS_CODE = 2, PL_OPS_CODE = 3, SKIP_OPS_CODE = 9;
-    // the latter are FORMAT parsing codes
+// the latter are FORMAT parsing codes
 const int ENTRIES_IN_PL = 3; // number of separate numbers in PL part of format
 const string MISSING_DATA_INDICATOR = "NA";
 bool VERBOSE = false;
@@ -58,14 +58,14 @@ int main(int argc, char *argv[])
 {
     // for filtering_streambuf:
     using namespace boost::iostreams;
-
+    
     clock_t startTime = clock();  // for tracking performance
-
+    
     // variables for command line arguments:
     int numSamples, numPopulations, numFields, numFormats, firstDataLineNumber = -1;
     int maxSubfieldsInFormat = MAX_SUBFIELDS_IN_FORMAT_DEFAULT;
     unsigned long int VCFfileLineCount = 0;
-	bool popFileHeader;
+    bool popFileHeader;
     char formatDelim = FORMAT_DELIM_DEFAULT;
     string vcfName, popFileName;
     // data file streams:
@@ -73,68 +73,68 @@ int main(int argc, char *argv[])
     ofstream outputFile;
     filtering_streambuf<input> myVCFin;     // filter for VCF for dealing with compression
     ifstream vcfUnfiltered; // needed to read in unfiltered
-
+    
 #ifdef DEBUG
     string progname = argv[0];
     cout << "\n\t" << progname << " is running!\n\n";
 #endif
-
+    
     // create cross referencing for population membership by sample:
     map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
-
-	// parse command line options and open file streams for reading:
+    
+    // parse command line options and open file streams for reading:
     parseCommandLineInput(argc, argv, PopulationFile, popFileHeader, numSamples, numPopulations, numFields, numFormats, formatDelim, maxSubfieldsInFormat, vcfName, popFileName, mapOfPopulations );
-
+    
     createVCFfilter( myVCFin, vcfName, vcfUnfiltered );    // create filter
     istream VCFfile( &myVCFin );            // create stream from filter
     if ( !VCFfile.good() ) {
         cerr << "\nError!  istream VCFfile is not good!\n";
     }
-
+    
     // create cross referencing for population membership by sample:
     //map<string, int> mapOfPopulations;      // key = population ID, value = integer population index
     map<string, int> mapOfSamples;          // key = sample ID, value = integer representing population index
     int numSamplesPerPopulation[numPopulations];    // for later frequency calculations
     //makePopulationMap( mapOfPopulations, numPopulations, popFileName );
     assignPopIndexToSamples( mapOfPopulations, mapOfSamples, PopulationFile, numSamplesPerPopulation, numPopulations, numSamples  );
-
+    
     // assign each sample column in the VCF to a population:
     int *populationReference;
     populationReference = new int[numSamples];
     bool success = assignSamplesToPopulations(VCFfile, numSamples, numFields, mapOfSamples, populationReference, VCFfileLineCount, firstDataLineNumber);
-
+    
 #ifdef DEBUG
     if ( success ) {
         cout << "\nassignSamplesToPopulations() exited cleanly\n\n";
     }
     cout << "VCFfileLineCount after assignSamplesToPopulations() is: \t" << VCFfileLineCount << endl;
 #endif
-
+    
     // if all has gone well to this point, the output file can be constructed:
     setUpOutputFile( outputFile, vcfName, numPopulations, mapOfPopulations );
-
+    
     // after that function call, the  VCFfile stream has pointed
     // to the first entry of the first line of data
-
+    
     // go through data and calculate allele frequencies:
     parseActualData( VCFfile, numFormats, formatDelim, maxSubfieldsInFormat, VCFfileLineCount, outputFile, numSamples, numPopulations, populationReference, vcfName );
-
-	// cleanup: close files:
-	PopulationFile.close();
+    
+    // cleanup: close files:
+    PopulationFile.close();
     outputFile.close();
-	// free memory:
-	//delete mySamples;
-
-
+    // free memory:
+    //delete mySamples;
+    
+    
 #ifdef DEBUG
-		cout << "\nI ran!!\n\n";
+    cout << "\nI ran!!\n\n";
 #endif
     clock_t endTime = clock();
     int minutes;
-	double seconds;
+    double seconds;
     convertTimeInterval( (endTime - startTime), minutes, seconds);
     cout << "\nIt took " << minutes << "min., " << seconds << "sec."  << " to run.\n";
-
+    
     return 0;
 }
 
@@ -154,14 +154,14 @@ void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, in
         mapOfSamples[ sampleID ] = popIndex;
         numSamplesPerPopulation[ popIndex ]++;
     }
-
+    
 #ifdef DEBUG
     // view number of samples per population:
     cout << "\nNumber of samples per population:\n";
     for ( int i = 0; i < numPopulations; i++ ) {
         cout << "\t" << i << ":\t" << numSamplesPerPopulation[i] << endl;
     }
-
+    
     // view maps created by last two function calls:
     string dum;
     int counter = 0;
@@ -188,8 +188,8 @@ void assignPopIndexToSamples( map<string, int>& mapOfPopulations, map<string, in
         it++;
     }
 #endif
-
-
+    
+    
 }
 
 
@@ -198,18 +198,18 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
     int count = 0, firstSampleCol = (numFields - numSamples + 1);
     int popIndex;
     string x;
-
+    
 #ifdef DEBUG
-        if ( firstSampleCol != 10 ) { // expectation based upon VCF format standards
-            cout << "\nError!  First sample column was NOT estimated to be 10th field!\n";
-            cout << "\t Aborting ...\n\n";
-            exit(-2);
-        }
+    if ( firstSampleCol != 10 ) { // expectation based upon VCF format standards
+        cout << "\nError!  First sample column was NOT estimated to be 10th field!\n";
+        cout << "\t Aborting ...\n\n";
+        exit(-2);
+    }
 #endif
     // First: get to header row (past meta-rows) in VCF file:
     while ( VCFfile >> x ) {
         VCFfileLineCount++; // incremement line counter; though the while loop goes one "word"
-                            // at a time, the clauses below move through lines;
+        // at a time, the clauses below move through lines;
         if ( x.substr(0,2) == "##" ) {
             VCFfile.ignore(unsigned(-1), '\n'); // move to next line
         } else if ( x == "#CHROM" ) {
@@ -218,13 +218,13 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
             for ( int i = 0; i < NUM_META_COLS ; i++ ) {
                 // advance to first sample header:
 #ifdef DEBUG
-                    if ( i == (NUM_META_COLS - 1) )
-                        cout << "\nYour VCF's last meta-field and some of the sample fields:\n" << x;
+                if ( i == (NUM_META_COLS - 1) )
+                    cout << "\nYour VCF's last meta-field and some of the sample fields:\n" << x;
 #endif
                 VCFfile >> x;
-
+                
             }
-
+            
             string sampleID = x;
             map<string, int>::iterator iter; // for checking existence in map
             for ( count = 0; count < numSamples; count ++ ) {
@@ -241,27 +241,27 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
                 popIndex = mapOfSamples[ sampleID ];
                 // store popIndex in array that maps each column to a population:
                 populationReference[ count ] = popIndex;
-
+                
 #ifdef DEBUG
-                    if ( popIndex != iter->second ) {
-                        cout << "\nError!  maps aren't working like you think!\n";
-                        exit(-3);
-                    }
-                    if ( count % 100 == 0 || count == (numSamples - 1))
-                        cout << " ... " << sampleID << ", popIndex=" << populationReference[count];
+                if ( popIndex != iter->second ) {
+                    cout << "\nError!  maps aren't working like you think!\n";
+                    exit(-3);
+                }
+                if ( count % 100 == 0 || count == (numSamples - 1))
+                    cout << " ... " << sampleID << ", popIndex=" << populationReference[count];
 #endif
-
+                
                 // advance the VCF stream pointer to the next string
                 if ( count < (numSamples - 1) )
                     VCFfile >> sampleID;
                 else
                     VCFfile.ignore(unsigned(-1), '\n'); // don't yet read in first entry of next line, but set the stage to
             }
-
+            
 #ifdef DEBUG
-                cout << "\n\nMost recently obtained string from VCFfile stream: " << sampleID << "\n\n";
-                if ( mapOfSamples.find("foobar") == mapOfSamples.end() )
-                    cout << "\nBogus call to mapOfSamples returned mapOfSamples.end()" << endl;
+            cout << "\n\nMost recently obtained string from VCFfile stream: " << sampleID << "\n\n";
+            if ( mapOfSamples.find("foobar") == mapOfSamples.end() )
+                cout << "\nBogus call to mapOfSamples returned mapOfSamples.end()" << endl;
 #endif
             if ( (VCFfileLineCount + 1) != firstDataLineNumber ) {
                 cout << "\nError in assignSamplesToPopulations():\n\t";
@@ -269,31 +269,31 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
                 cout << "Aborting ... \n";
                 exit(-2);
             }
-
+            
             return true;
         } else {
             cout << "\nError!  VCF file not structured as expected!\n";
             cout << "I did NOT find a header row starting with #CHROM\n\t Aborting ...\n\n";
             exit(-2);
         }
-
+        
     }
-
+    
     // execution should never reach here unless VCF file has ONLY ## rows
     cout << "\nError!  assignSamplesToPopulations() exited with status 'false'.\n\t";
     cout << "--> Please check that VCF has ## meta rows followed by one\n\t";
     cout << "header row starting with #CHROM, followed by SNP datal rows.\n\tAborting ...\n\n";
     exit(-2);
-
+    
     return false;
 }
 
 
 inline int calculateMedian( int values[], int n, int ignoreFirst )
 {
-	int medianSpot = ignoreFirst + ((n - ignoreFirst)/2);
-	sort( values, values + n );
-	return( values[ medianSpot ] );
+    int medianSpot = ignoreFirst + ((n - ignoreFirst)/2);
+    sort( values, values + n );
+    return( values[ medianSpot ] );
 }
 
 
@@ -319,28 +319,28 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
         for ( int i = 0; i < (numSamples * ENTRIES_IN_PL); i++ )
             PLvalues[i] = 0;
     }
-
+    
     // loop over all columns of data:
     int sampleCounter = 0, operationCode, popIndex;
     //size_t pos, strStart[numTokensInFormat], strLen[numTokensInFormat];
     size_t tokenLength;
     char checkGTsep1 = '/', checkGTsep2 = '|'; // the only two expected separators
     char allele1, allele2;
-	int DPnoCall = 0, GQnoCall = 0;
+    int DPnoCall = 0, GQnoCall = 0;
     char dummyChar;
     char tokenHolder[SMALL_TOKEN_SIZE_BUFFER];
     for ( sampleCounter = 0; sampleCounter < numSamples; sampleCounter++ ) {
-
+        
         popIndex = populationReference[ sampleCounter ];
-
-//        VCFfile.get( dummyChar );
-//#ifdef DEBUG
-//        if ( dummyChar != '\t' ) {
-//            cerr << "\nYo, file parsing not working way you think.\n\tIn calculateSummaryStats():\n\t";
-//            cerr << "dummyChar = " << dummyChar << endl;
-//        }
-//#endif
-
+        
+        //        VCFfile.get( dummyChar );
+        //#ifdef DEBUG
+        //        if ( dummyChar != '\t' ) {
+        //            cerr << "\nYo, file parsing not working way you think.\n\tIn calculateSummaryStats():\n\t";
+        //            cerr << "dummyChar = " << dummyChar << endl;
+        //        }
+        //#endif
+        
         // parse the current sample:
         for ( int tokeni = 0; tokeni < numTokensInFormat; tokeni++ ) {
             // VCFfile.get( dummyChar ); // always have to clear the delims old
@@ -349,7 +349,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
             else if ( sampleCounter < ( numSamples - 1 ) )
                 getNextField( tokenHolder, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead ); // old: VCFfile.get( tokenHolder, SMALL_TOKEN_SIZE_BUFFER, VCF_DELIM ); // get up to next '\t'
             else
-                getNextField( tokenHolder, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, '\n', totalCharsInLastRead ); // old; VCFfile.get( tokenHolder, SMALL_TOKEN_SIZE_BUFFER, '\n' ); // last possible one
+                getNextFieldLineEnd( tokenHolder, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead ); // old: VCFfile.get( tokenHolder, SMALL_TOKEN_SIZE_BUFFER, '\n' ); // last possible one
             // get operation code:
 #ifndef ONLYGET
             operationCode = formatOpsOrder[tokeni];
@@ -358,7 +358,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
                 // parse the genotype data and add to correct population
                 allele1 = tokenHolder[0];
                 allele2 = tokenHolder[2]; // for biallelic SNPS, it should go like this always!
-
+                
                 // considering the diploid genotype, there are 9 options:
                 if ( allele1 == '0' ) {
                     if ( allele2 == '0' ) {
@@ -394,67 +394,67 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
                             altAlleleCounts[popIndex]++; // one alt allele
                     }
                 }
-
+                
                 // now recording allele counts:
-
+                
 #ifdef DEBUG
-
+                
                 if ( tokenHolder[1] != checkGTsep1 && tokenHolder[1] != checkGTsep2 ) {
                     cerr << "\nError in calculateSummaryStats():\n\tGT token ";
                     cerr << "does not have expected character (" << checkGTsep1 << " or " << checkGTsep2 << ") between alleles.\n\t";
                     cerr << "I found: " << tokenHolder[1] << ", and the whole token was:\n\t";
-
+                    
                     fprintf(stderr, "[start]%s[end], length = %lu\n", tokenHolder, tokenLength);
                     fprintf(stderr, "Sample counter = %i\n", sampleCounter);
-
+                    
                     cerr << "Aborting ... \n\n";
                     exit(-1);
                 }
-//                if ( sampleCounter % 100 == 0 ) {
-//                    cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GT is " << token << endl;
-//                    cout << "allele1 = " << allele1 << ", allele2 = " << allele2 << "\t" << allele1.length() << "\t" << allele2.length() << endl;
-//                    cout << "homoRefCount = " << homoRefCount << ", hetCount = " << hetCount << ", homoAltCount = " << homoAltCount << endl;
-//                    cout << "Valid sample counts and alt allele counts by popn:\n";
-//                    for ( int j = 0; j < numPopulations; j++ )
-//                        cout << "\t" << validSampleCounts[j] << ", " << altAlleleCounts[j];
-//                    cout << endl;
-//                }
+                //                if ( sampleCounter % 100 == 0 ) {
+                //                    cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GT is " << token << endl;
+                //                    cout << "allele1 = " << allele1 << ", allele2 = " << allele2 << "\t" << allele1.length() << "\t" << allele2.length() << endl;
+                //                    cout << "homoRefCount = " << homoRefCount << ", hetCount = " << hetCount << ", homoAltCount = " << homoAltCount << endl;
+                //                    cout << "Valid sample counts and alt allele counts by popn:\n";
+                //                    for ( int j = 0; j < numPopulations; j++ )
+                //                        cout << "\t" << validSampleCounts[j] << ", " << altAlleleCounts[j];
+                //                    cout << endl;
+                //                }
 #endif
-
+                
             } else if ( operationCode == DP_OPS_CODE && lookForDP ) {
                 // add the DP data to DP array
-				if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
-					DPvalues[sampleCounter] = -1;
-					DPnoCall++;
-				} else {
+                if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
+                    DPvalues[sampleCounter] = -1;
+                    DPnoCall++;
+                } else {
                     //fprintf(stdout, "\nDP tokenHolder is: [%s] with length %lu\n", tokenHolder, tokenLength);
-                	DPvalues[sampleCounter] = atoi(tokenHolder);
-				}
-
-//                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", DP is " << token << endl;
+                    DPvalues[sampleCounter] = atoi(tokenHolder);
+                }
+                
+                //                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", DP is " << token << endl;
             } else if ( operationCode == GQ_OPS_CODE && lookForGQ ) {
                 // add the GQ data to the GQ array
-				if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
-					GQvalues[sampleCounter] = -1;
-					GQnoCall++;
-				} else {
+                if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
+                    GQvalues[sampleCounter] = -1;
+                    GQnoCall++;
+                } else {
                     //fprintf(stdout, "\nGQ tokenHolder is: [%s] with length %lu\n", tokenHolder, tokenLength);
-					GQvalues[sampleCounter] = atoi(tokenHolder);
-				}
-//                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GQ is " << token << endl;
+                    GQvalues[sampleCounter] = atoi(tokenHolder);
+                }
+                //                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GQ is " << token << endl;
             } else if ( operationCode == PL_OPS_CODE && lookForPL ) {
-
+                
                 parsePL( tokenHolder );
-
+                
             }
-
+            
             // otherwise just skip it
-
+            
             // delete the substring
             //currentSample.erase(0, pos + formatDelim.length()); // old way replaced by prior for loop
 #endif
         }  // end of loop over tokens in sample
-
+        
     }  // end of for() loop over numSamples; used to be while() loop over lineStream
 #ifndef ONLYGET
     // error checking:
@@ -465,7 +465,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
         cout << "\n\tAborting ... ";
         exit(-5);
     }
-
+    
     // calculate stats
     // record stats
     // here is the order of remaining columns to calculate and add to ofstream outputFile:
@@ -491,7 +491,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
     double freq;
     for ( int i = 0; i < numPopulations; i++ ) {
         if ( !validSampleCounts[i] ) {
-          // no div by zero
+            // no div by zero
             freq = std::numeric_limits<double>::quiet_NaN();
         } else {
             freq = static_cast<double>( altAlleleCounts[i] ) / static_cast<double>( validSampleCounts[i] );
@@ -500,7 +500,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
     }
 #endif
     // outputFile << endl;  not needed here; this is done in parseActualData()
-
+    
 }
 
 
@@ -522,10 +522,10 @@ void convertTimeInterval( clock_t myTimeInterval, int& minutes, double& seconds)
 {
     double totalSeconds = (static_cast<double>( myTimeInterval )) / (static_cast<double>(CLOCKS_PER_SEC));
     long unsigned int totSecondsInt = static_cast<long unsigned int>( totalSeconds );
-
+    
     minutes = totSecondsInt / 60;
-	seconds = totalSeconds - (static_cast<double> (minutes * 60));
-
+    seconds = totalSeconds - (static_cast<double> (minutes * 60));
+    
 }
 
 
@@ -533,11 +533,11 @@ void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::in
 {
     // boost libraries for filtering_streambuf
     using namespace boost::iostreams;
-
+    
     // must open file:
     vcfUnfiltered.open(vcfName, ios_base::in | ios_base::binary);
-
-
+    
+    
     // find the file extension so we know what kind of filter, if any, to use:
     string filext;
     size_t dotPos, endPos;
@@ -548,7 +548,7 @@ void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::in
     cout << "\nfile extension on VCF file is " << filext << endl;
 #endif
     //Read from the first command line argument, assume it's gzipped
-
+    
     // use file extension to build filter:
     if ( filext == ".gz" ) {
         myVCFin.push(gzip_decompressor());
@@ -559,7 +559,7 @@ void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::in
         cerr << "\n\tAborting ... \n\n";
         exit(-1);
     }
-
+    
     // make the file the input
     myVCFin.push( vcfUnfiltered );
 }
@@ -576,7 +576,7 @@ void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, i
         cout << "plus -S " << numTokensInFormat << "\n\tAborting ...\n";
         exit(-4);
     }
-
+    
 #ifdef DEBUG
     if ( lookForGQ ) {
         if ( GTtoken == GQtoken ) {
@@ -597,7 +597,7 @@ void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, i
         }
     }
 #endif
-
+    
     int index;
     for ( int i = 0; i < numTokensInFormat; i++ ) {
         index = i + 1;  // token indexes start at 1
@@ -613,7 +613,7 @@ void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, i
             formatOpsOrder[i] = SKIP_OPS_CODE;
         }
     }
-
+    
 #ifdef DEBUG
     cout << "\nformatOpsOrder:\n";
     for ( int i = 0; i < numTokensInFormat; i++ ) {
@@ -690,7 +690,7 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
     bool DPfound = false;
     char holdValueAsChar[80];
     double DPval;
-
+    
     do {
         if ( INFObuffer[count] == 'D' ) {
             // could be DP
@@ -718,15 +718,15 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
             }
         }
     } while ( (INFObuffer[++count] != '\0') && (count < TOKEN_BUFFER_SIZE) && !DPfound );
-
+    
     if ( !DPfound ) {
         cout << "\nWarning!!  No DP found in INFO field...\n";
         lookForDPinINFO = false;
         DPval = std::numeric_limits<double>::quiet_NaN();
-//        cout << "\n\tYo it's nan: " << DPval << endl;
+        //        cout << "\n\tYo it's nan: " << DPval << endl;
     }
-
-
+    
+    
     return DPval;
 }
 
@@ -735,71 +735,177 @@ inline void fillBigCharBuffer( char* bigCharBuffer, istream& VCFfile, char*& big
 {
     // read the next MY_BIG_BUFFER_SIZE chars to the start of the buffer
     VCFfile.read( bigCharBuffer, MY_BIG_BUFFER_SIZE );
-
+    
     // reset counters
     bigBuffPt = bigCharBuffer; // point to beginning of array
     buffPointPos = 0; // index position reset
-
+    
     if ( VCFfile.eof() ) {
-      // end of file reached
-      totalCharsInLastRead = VCFfile.gcount();
+        // end of file reached
+        totalCharsInLastRead = VCFfile.gcount();
+        if ( totalCharsInLastRead < MY_BIG_BUFFER_SIZE )
+            bigCharBuffer[ totalCharsInLastRead ] = '\0';
     }
+    
 }
 
 
 inline size_t getLength( char *myCharArray )
 {
     size_t totalLength = 0;
-
+    
     while ( myCharArray[totalLength] != '\0' ) {
         totalLength++;
     }
-
+    
     return totalLength;
 }
 
 
 inline void getNextField( char* fieldArray, char* bigCharBuffer, istream& VCFfile, char*& bigBuffPt, long int& buffPointPos, char delimiter, long int& totalCharsInLastRead )
 {
-  // function to get next set of chars up to next tab = VCF_DELIM
+    // function to get next set of chars up to next tab = VCF_DELIM
 #ifdef DEBUG
-  size_t pos = 0;
+    size_t pos = 0;
 #endif
-
-  while ( *bigBuffPt != delimiter ) {
-    *fieldArray++ = *bigBuffPt++; // fieldArray could be CHROM, INFO, FORMAT, etc...
-    if ( ++buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() ) {
-      fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+    
+    while ( *bigBuffPt != delimiter ) {
+        *fieldArray++ = *bigBuffPt++; // fieldArray could be CHROM, INFO, FORMAT, etc...
+        if ( ++buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() ) {
+            fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+        }
+        
+#ifdef DEBUG
+        pos++; // count how many we've done
+#endif
+        
     }
-
-#ifdef DEBUG
-    pos++; // count how many we've done
-#endif
-
-  }
-  *fieldArray = '\0'; // terminate with null character
-  if ( *(fieldArray - 1) == '\r' ) {
-    *(fieldArray - 1) = '\0'; // in case of CR LF line endings where CR was stored in field array prior to encountering LF
-  }
-  // now move past delimiter to next char in buffer; allow for spaces and different line endings
-  do {
+    *fieldArray = '\0'; // terminate with null character
+    
+    // advance past delimiter:
     ++bigBuffPt;
     if ( ++buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() )
-      fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
-  } while ( *bigBuffPt == '\n' || *bigBuffPt == ' ' || *bigBuffPt == '\r' );
-
-
+        fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+    
+    
 #ifdef DEBUG
-  if ( pos == 0 ) {
-    cerr << "\nError in getNextField():\n\tzero length field found!!  Here are a few chars from the bigCharBuffer:\npos\tchar\n";
-    for ( int i = -10; i < 10; i++ ) {
-      if ( (buffPointPos + i) >= 0 && (buffPointPos + i) < MY_BIG_BUFFER_SIZE )
-        fprintf(stderr, "%li\t%c\n", (buffPointPos + i), *(bigBuffPt+i) );
+    if ( *bigBuffPt == delimiter || *bigBuffPt == '\n' || *bigBuffPt == '\r' ) {
+        cerr << "\nError in getNextField():\n\tYou expected to be at next field, but instead *bigBuffPt = " << *bigBuffPt << endl;
+        exit(-1);
     }
-    exit(-1);
-  }
+    if ( pos == 0 ) {
+        cerr << "\nError in getNextField():\n\tzero length field found!!  Here are a few chars from the bigCharBuffer:\npos\tchar\n";
+        for ( int i = -10; i < 10; i++ ) {
+            if ( (buffPointPos + i) >= 0 && (buffPointPos + i) < MY_BIG_BUFFER_SIZE )
+                fprintf(stderr, "%li\t%c\n", (buffPointPos + i), *(bigBuffPt+i) );
+        }
+        exit(-1);
+    }
 #endif
 }
+
+
+inline void getNextFieldLineEnd( char* fieldArray, char* bigCharBuffer, istream& VCFfile, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead )
+{
+    // function to get next set of chars up to end of line
+#ifdef DEBUG
+    size_t pos = 0;
+#endif
+    
+    while ( *bigBuffPt != '\n' && *bigBuffPt != '\r' && *bigBuffPt != '\0' ) {
+        *fieldArray++ = *bigBuffPt++; // fieldArray could be CHROM, INFO, FORMAT, etc...
+        if ( ++buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() ) {
+            fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+        }
+        
+#ifdef DEBUG
+        pos++; // count how many we've done
+#endif
+        
+    }
+    *fieldArray = '\0'; // terminate with null character
+    
+    // now move past delimiter to next char in buffer; allow for spaces and different line endings
+    // cases:
+        // end of line only;
+        // end of line and end of buffer;
+        // end of buffer before \n (if CRLF)
+        // last line (and thus can't look beyond without seg fault
+    bool keepAdvancing = false;
+    do {
+        ++bigBuffPt;
+        ++buffPointPos;
+        // first, check for refill
+        if ( buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() )
+            fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+        
+        // check if end of file:
+        if ( VCFfile.eof() ) {
+            // we have done last read from file
+            if ( buffPointPos < totalCharsInLastRead ) {
+                // we should check next char
+                if ( *bigBuffPt == '\n' || *bigBuffPt == ' ' || *bigBuffPt == '\r' ) {
+                    keepAdvancing = true;
+                } else {
+                    keepAdvancing = false;
+                }
+            } else {
+                // we're at the end and should not check next char
+                keepAdvancing = false;
+            }
+        } else {
+            // NOT end of file yet
+            // now need to check next char
+            if ( *bigBuffPt == '\n' || *bigBuffPt == ' ' || *bigBuffPt == '\r' ) {
+                keepAdvancing = true;
+            } else {
+                keepAdvancing = false;
+            }
+        }
+    } while ( keepAdvancing );
+    
+    
+#ifdef DEBUG
+    if ( pos == 0 ) {
+        cerr << "\nError in getNextField():\n\tzero length field found!!  Here are a few chars from the bigCharBuffer:\npos\tchar\n";
+        for ( int i = -10; i < 10; i++ ) {
+            if ( (buffPointPos + i) >= 0 && (buffPointPos + i) < MY_BIG_BUFFER_SIZE )
+                fprintf(stderr, "%li\t%c\n", (buffPointPos + i), *(bigBuffPt+i) );
+        }
+        exit(-1);
+    }
+#endif
+}
+
+
+inline void goToStartOfNextLine( char* bigCharBuffer, istream& VCFfile, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead )
+{
+    // first, find newline:
+    bool stillLooking = true;
+    while ( *bigBuffPt != '\n' && *bigBuffPt != '\r' && stillLooking ) {
+        ++bigBuffPt;
+        ++buffPointPos;
+        if ( buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() ) {
+            fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+        } else if ( VCFfile.eof() && buffPointPos == totalCharsInLastRead ) {
+            stillLooking = false;
+        }
+    }
+    //  now we found a new line or the end of the file
+    //  need to move PAST new line if it's not the last line of the file
+    if ( stillLooking ) {
+        while ( ( *bigBuffPt == '\n' || *bigBuffPt == '\r' ) && stillLooking ) {
+            ++bigBuffPt;
+            ++buffPointPos;
+            if ( buffPointPos == MY_BIG_BUFFER_SIZE && !VCFfile.eof() ) {
+                fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+            } else if ( VCFfile.eof() && buffPointPos == totalCharsInLastRead ) {
+                stillLooking = false;
+            }
+        }
+    }
+}
+
 
 
 void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int maxSubfieldsInFormat, unsigned long int& VCFfileLineCount, ofstream& outputFile, int numSamples, int numPopulations, int* populationReference, string vcfName )
@@ -809,10 +915,10 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
     //double QUAL;
     long int dumCol, SNPcount = 0, buffPointPos, totalCharsInLastRead = 0;
     char dummyChar;
-    bool keepThis, checkFormat = true, lookForDP, lookForGQ, lookForPL;
+    bool keepThis, checkFormat = true, lookForDP, lookForGQ, lookForPL, keepOnGoing;
     int numTokensInFormat, GTtoken = -1, DPtoken = -1, GQtoken = -1, PLtoken = -1;
-	string discardedLinesFileName = vcfName + "_discardedLineNums.txt";
-	ofstream discardedLinesFile( discardedLinesFileName, ostream::out );
+    string discardedLinesFileName = vcfName + "_discardedLineNums.txt";
+    ofstream discardedLinesFile( discardedLinesFileName, ostream::out );
     // string oneLine; // old way using linestream
     // the latter ints are for parsing GT = genotype, DP = depth,
     // and GQ = quality sub-fields of the FORMAT column
@@ -826,29 +932,30 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
     FILTER = new char[TOKEN_BUFFER_SIZE];
     INFO = new char[TOKEN_BUFFER_SIZE];
     FORMAT = new char[TOKEN_BUFFER_SIZE];
-
+    
     bigCharBuffer = new char[MY_BIG_BUFFER_SIZE];
-
-	discardedLinesFile << "VCFfileLinesNotUsed" << endl; // header row
+    
+    discardedLinesFile << "VCFfileLinesNotUsed" << endl; // header row
     // work line by line:
     // used to be while( getline ... )
     // fill the buffer prior to entering the line by line loop:
     fillBigCharBuffer( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
 #ifdef DEBUG
     if ( bigBuffPt != bigCharBuffer ) {
-      cerr << "\nError with fillBigCharBuffer():\n\tpointers not reset as you expected!!\n\n";
-      exit(-1);
+        cerr << "\nError with fillBigCharBuffer():\n\tpointers not reset as you expected!!\n\n";
+        exit(-1);
     }
 #endif
+    keepOnGoing = true;
     do {
         // VCFfile.putback( dummyChar ); // replace the one that get() got
         SNPcount++; // counter of how many SNP lines have been processed
         VCFfileLineCount++; // counter of how many LINES of VCF file have been processed
-
+        
         // turn each line into a string stream for easy parsing by whitespace:
         // lineStream.clear(); // very old version
         // lineStream.str( oneLine ); // very old version
-
+        
         // work with meta-col data:
         keepThis = parseMetaColData( VCFfile, bigCharBuffer, bigBuffPt, buffPointPos, totalCharsInLastRead, SNPcount, checkFormat, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO, FORMAT);
 #ifndef ONLYGET
@@ -864,24 +971,27 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
 #endif
             // let's calculate and store data for one line, i.e., one SNP at a time:
             calculateSummaryStats( VCFfile, bigCharBuffer, bigBuffPt, buffPointPos, totalCharsInLastRead, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference );
-
+            
             // add end of line (done with this line):
             outputFile << endl;
-		} else {
-			discardedLinesFile << VCFfileLineCount << endl;
-
-		}
-        VCFfile.ignore(unsigned(-1), '\n'); // go to end of line
-
-
+        } else {
+            discardedLinesFile << VCFfileLineCount << endl;
+            goToStartOfNextLine( bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, totalCharsInLastRead );
+        }
+        // VCFfile.ignore(unsigned(-1), '\n'); // go to end of line
+        
+        
         if ( numFormats == 1 ) {
             checkFormat = false; // not needed after first SNP
         }
-//        if ( SNPcount == 2 )
-//            exit(0);
-} while ( !VCFfile.eof() );
-
-	discardedLinesFile.close();
+        
+        //        if ( SNPcount == 2 )
+        //            exit(0);
+        if ( buffPointPos == totalCharsInLastRead && VCFfile.eof() )
+            keepOnGoing = false;
+    } while ( keepOnGoing );
+    
+    discardedLinesFile.close();
     delete[] CHROM;
     delete[] POS;
     delete[] ID;
@@ -891,44 +1001,44 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
     delete[] FILTER;
     delete[] INFO;
     delete[] FORMAT;
-
+    
     delete[] bigCharBuffer;
 }
 
 
 void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, bool& popFileHeader, int& numSamples, int& numPopulations, int& numFields, int& numFormats, char& formatDelim, int& maxSubfieldsInFormat, string& vcfName, string& popFileName, map<string, int>& mapOfPopulations )
 {
-	const int expectedMinArgNum = 4;
-	string progname = argv[0];
+    const int expectedMinArgNum = 4;
+    string progname = argv[0];
     string* uniquePopulationNames;
-	string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way (note flags -V and -P):\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
+    string message = "\nError!  Please supply two file names as command line arguments,\n\tin the following way (note flags -V and -P):\n\t" + progname + " -V NameOfVCFfile -P NameOfPopulationFile\n\n";
     bool numFormatsSet = false, vcfNameSet = false, popFileNameSet = false;
     if ( argc < expectedMinArgNum ) {
-		cerr << message;
-		exit(-1);
-	}
+        cerr << message;
+        exit(-1);
+    }
     // default or automatic values:
     popFileHeader = false;  // default is NO header
     numFormats = 1;         // default is same FORMAT for every SNP
     OVERALL_DP_MIN_THRESHOLD = OVERALL_DP_MIN_THRESHOLD_DEFAULT;
     MY_BIG_BUFFER_SIZE = MY_BIG_BUFFER_SIZE_DEFAULT;
-
-	// parse command line options:
-	int flag;
+    
+    // parse command line options:
+    int flag;
     while ((flag = getopt(argc, argv, "V:P:Hf:D:S:vd:B:")) != -1) {
-		switch (flag) {
-			case 'V':
-				vcfName = optarg;
+        switch (flag) {
+            case 'V':
+                vcfName = optarg;
                 vcfNameSet = true;
-				break;
-			case 'P':
-				popFileName = optarg;
+                break;
+            case 'P':
+                popFileName = optarg;
                 popFileNameSet = true;
-				break;
-			case 'H':
-				popFileHeader = true;
-				break;
-			case 'f':
+                break;
+            case 'H':
+                popFileHeader = true;
+                break;
+            case 'f':
                 numFormats = atoi(optarg);
                 numFormatsSet = true;
                 break;
@@ -947,46 +1057,46 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
             case 'B':
                 MY_BIG_BUFFER_SIZE = atoi(optarg);
                 break;
-
+                
             default: /* '?' */
-				exit(-1);
-		}
-	}
-
+                exit(-1);
+        }
+    }
+    
     if ( !popFileNameSet || !vcfNameSet ) {
         cerr << message;
         exit(-1);
     }
-
+    
     cout << "\nOVERALL_DP_MIN_THRESHOLD is " << OVERALL_DP_MIN_THRESHOLD << endl;
-
+    
     parsePopulationDesigFile( popFileName, numSamples, numPopulations, mapOfPopulations, popFileHeader );
-
+    
     numFields = NUM_META_COLS + numSamples;
-
-
-
-	// open file streams and check for errors:
-//    if ( !VCFfile.good() ) {
-//        cout << "\nError in parseCommandLineInput():\n\tVCF file name '" << vcfName << " 'not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
-//        exit( -1 );
-//    }
-	PopulationFile.open( popFileName );
-	if ( !PopulationFile.good() ) {
-		cout << "\nError in parseCommandLineInput():\n\tPopulation file name '" << popFileName << "' not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
-		exit( -1 );
-	}
-
-	// error checking on user input; some arguments are mandatory!
+    
+    
+    
+    // open file streams and check for errors:
+    //    if ( !VCFfile.good() ) {
+    //        cout << "\nError in parseCommandLineInput():\n\tVCF file name '" << vcfName << " 'not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
+    //        exit( -1 );
+    //    }
+    PopulationFile.open( popFileName );
+    if ( !PopulationFile.good() ) {
+        cout << "\nError in parseCommandLineInput():\n\tPopulation file name '" << popFileName << "' not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
+        exit( -1 );
+    }
+    
+    // error checking on user input; some arguments are mandatory!
     string testString;
 #ifdef DEBUG
-        cout << "\nMax length of string on this system = " << testString.max_size() << "\n\n";
+    cout << "\nMax length of string on this system = " << testString.max_size() << "\n\n";
 #endif
-	if ( numPopulations < 2 ) {
-		cout << "\nError!  numPopulations = " << numPopulations << ", but it has to be >= 2 for this program.\nExiting ...\n\n";
-		exit( -1 );
-	}
-	if ( !numFormatsSet ) {
+    if ( numPopulations < 2 ) {
+        cout << "\nError!  numPopulations = " << numPopulations << ", but it has to be >= 2 for this program.\nExiting ...\n\n";
+        exit( -1 );
+    }
+    if ( !numFormatsSet ) {
         cout << "\nWarning!! numFormats (-f) not set on command line.\nAssuming numFormats = " << numFormats << endl;
     }
 }
@@ -1002,8 +1112,8 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
     size_t pos, REFlength, ALTlength;
     bool keepThis = true;
     static bool lookForDPinINFO = true;
-
-
+    
+    
     // loop over fields:
     int col = 1;
     //while( col <= NUM_META_COLS ) {
@@ -1015,33 +1125,35 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
     // VCFfile.get( CHROM, TOKEN_BUFFER_SIZE, VCF_DELIM ); // old way
     // VCFfile.ignore(unsigned(-1), VCF_DELIM);  // old way
     getNextField( CHROM, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
-
+    
     //                break;
     //            case 2:
     // VCFfile.get( POS, TOKEN_BUFFER_SIZE, VCF_DELIM ); // old way
     // VCFfile.ignore(unsigned(-1), VCF_DELIM); // old way
     getNextField( POS, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
-
+    
     //                break;
     //            case 3:
     // VCFfile.get( ID, TOKEN_BUFFER_SIZE, VCF_DELIM );
     // VCFfile.ignore(unsigned(-1), VCF_DELIM);
     getNextField( ID, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
-
+    
     //                break;
     //            case 4:
     // VCFfile.get( REF, TOKEN_BUFFER_SIZE, VCF_DELIM );
-    // REFlength = getLength( REF );
+    
     getNextField( REF, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
+    REFlength = getLength( REF );
+    
     //                break;
     // VCFfile.ignore(unsigned(-1), VCF_DELIM);
-
+    
     //            case 5:
     // VCFfile.get( ALT, TOKEN_BUFFER_SIZE, VCF_DELIM );
     getNextField( ALT, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
     ALTlength = getLength( ALT );
     // VCFfile.ignore(unsigned(-1), VCF_DELIM);
-
+    
     //                break;
     //            case 6:
     // VCFfile.get( QUAL, TOKEN_BUFFER_SIZE, VCF_DELIM );
@@ -1049,20 +1161,20 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
     getNextField( QUAL, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
     //QUAL = stod(buffer);
     //                break;
-
+    
     //            case 7:                 // this also handles 8!
     // VCFfile.get( FILTER, TOKEN_BUFFER_SIZE, VCF_DELIM );
     getNextField( FILTER, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
-
+    
     // need to prepare to handle INFO column next
     // VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
     //VCFfile.get( INFO, TOKEN_BUFFER_SIZE, VCF_DELIM );
     getNextField( INFO, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
-
+    
     //                fprintf(stdout, "INFO is: \t%s[end]\n", INFO);
     if ( lookForDPinINFO ) {
         DPval = extractDPvalue( INFO, lookForDPinINFO );
-        //cout << "\tDPval extracted is: \t" << DPval << endl;
+        // cout << "\tDPval extracted is: \t" << DPval;
         if ( !isnan( DPval ) ) {
             if ( DPval >= OVERALL_DP_MIN_THRESHOLD )
                 keepThis = true;
@@ -1073,17 +1185,18 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
         DPval = std::numeric_limits<double>::quiet_NaN();
         //                    cout << "\tYo DPval is " << DPval << " bruh\n\n  **************** \n\n";
     }
+    // cout << "\t and keepThis = " << keepThis;
     // VCFfile.ignore(unsigned(-1), VCF_DELIM); // move to tab
-
+    
     //                col++; // since this case also handles 8!
     //                break;
-
+    
     //            case 9:
     // VCFfile.get( FORMAT, TOKEN_BUFFER_SIZE, VCF_DELIM );
     getNextField( FORMAT, bigCharBuffer, VCFfile, bigBuffPt, buffPointPos, VCF_DELIM, totalCharsInLastRead );
     //cout << "\nFORMAT is " << FORMAT << endl;
-
-
+    
+    
     //                FORMAT = buffer;
     //                break;
     //            default:
@@ -1099,7 +1212,7 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
     //
     //    }
     //
-
+    
     // status report:
     if ( VERBOSE ) {
         if ( SNPcount % 10000 == 0 ) {
@@ -1107,7 +1220,7 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
             cout <<  CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << endl;
         }
     }
-
+    
     if ( checkFormat ) {
         char *token = new char[SMALL_TOKEN_SIZE_BUFFER];
         subfieldCount = 0;
@@ -1134,7 +1247,7 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
             // process subfield:
             //cout << "\ntoken is " << token << endl;
             checkFormatToken( token, GTtoken, DPtoken, GQtoken, PLtoken, subfieldCount );
-
+            
             if ( nextChar != '\0' )
                 nextChar = FORMAT[++pos]; // get the next character past the delimiter
         }
@@ -1144,31 +1257,31 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
         }
         numTokensInFormat = subfieldCount;
         errorCheckTokens( GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL );
-
-//        while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
-//            subfieldCount++;
-//            token = FORMAT.substr(0, pos);
-//            // record sub-field if it matches one we're looking for:
-//            checkFormatToken( token, GTtoken, DPtoken, GQtoken, subfieldCount );
-//#ifdef DEBUG
-//                cout << "\t" << subfieldCount << "\t\t" << pos  << "\t" << token << endl;
-//#endif
-//            FORMAT.erase(0, pos + myDelim.length());
-//        }
-//        numTokensInFormat = subfieldCount + 1;
-//        checkFormatToken( FORMAT, GTtoken, DPtoken, GQtoken, numTokensInFormat ); // check remaining field (after last occurrence of delimiter)
-//        // error checking on occurrence of GT:
-//        errorCheckTokens( GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ );
-
+        
+        //        while ( (pos = FORMAT.find( myDelim )) != string::npos ) {
+        //            subfieldCount++;
+        //            token = FORMAT.substr(0, pos);
+        //            // record sub-field if it matches one we're looking for:
+        //            checkFormatToken( token, GTtoken, DPtoken, GQtoken, subfieldCount );
+        //#ifdef DEBUG
+        //                cout << "\t" << subfieldCount << "\t\t" << pos  << "\t" << token << endl;
+        //#endif
+        //            FORMAT.erase(0, pos + myDelim.length());
+        //        }
+        //        numTokensInFormat = subfieldCount + 1;
+        //        checkFormatToken( FORMAT, GTtoken, DPtoken, GQtoken, numTokensInFormat ); // check remaining field (after last occurrence of delimiter)
+        //        // error checking on occurrence of GT:
+        //        errorCheckTokens( GTtoken, DPtoken, GQtoken, lookForDP, lookForGQ );
+        
 #ifdef DEBUG
         cout << "\t" << numTokensInFormat << "\t\tlast\t" << FORMAT << "\twhile loop count = " << subfieldCount << endl;
         cout << "GTtoken = " << GTtoken << "; DPtoken = " << DPtoken << "; GQtoken = " << GQtoken << "; PLtoken = " << PLtoken << "; lookForPL = " << lookForPL << endl;
-
+        
 #endif
-
+        
         delete[] token;
-
-
+        
+        
     } // close on if(checkFormat)
     // check for bi-allelic SNPs:
     if ( keepThis ) {
@@ -1177,24 +1290,25 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
         } else {
             keepThis = true;
         }
+        // cout << "; REF = " << REF << ", ALT = " << ALT << ", keepThis = " << keepThis << endl;
     }
-
-//    if ( !keepThis ) {
-//#ifdef DEBUG
-//        cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
-//#endif
-//    }
-
+    
+    //    if ( !keepThis ) {
+    //#ifdef DEBUG
+    //        cout << "\nSNP #" << SNPcount << ", ID = " << ID << ", has REF = " << REF << " and ALT = " << ALT << endl;
+    //#endif
+    //    }
+    
     // delete[] INFObuffer;
     // delete[] buffer;
-
+    
     return keepThis;
 }
 
 
 inline void parsePL( char* tokenHolder )
 {
-
+    
     // here's the description from the VCF file specification, pp. 10-11 of
     // http://samtools.github.io/hts-specs/VCFv4.3.pdf, accessed 7/9/19:
     /*
@@ -1204,12 +1318,12 @@ inline void parsePL( char* tokenHolder )
      of alleles defined in the REF and ALT fields.
      In presence of the GT field the same ploidy is expected;
      without GT field, diploidy is assumed.
-
+     
      PL (Integer): The phred-scaled genotype likelihoods rounded
      to the closest integer, and otherwise defined precisely as
      the GL field.
      */
-
+    
 #ifdef DEBUG
     //cout << "\ntokenHolder = " << tokenHolder << endl;
     //char* tempCharArray = strtok(tokenHolder, ",");
@@ -1221,31 +1335,31 @@ inline void parsePL( char* tokenHolder )
     //cout << endl;
     //exit(0);
 #endif
-
+    
 }
 
 
 void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulations, map<string,int>& mapOfPopulations, bool popFileHeader )
 {
     // goal is to get numSamples, numPopulations, and uniquePopulationNames
-
+    
     ifstream popMapFile( fname );
     string sampleID, popMembership;
     int countPops = 0, countSamples = 0, lineCount = 0;
     map<string, int> tempSampleMap;
-
+    
     if ( !popMapFile.good() ) {
         cout << "\nError in parseCommandLineInput():\n\tPopulation file name '" << fname << "' not found!\n\t--> Check spelling and path.\n\tAborting ... \n\n";
         exit( -1 );
     }
-
-
+    
+    
     if ( popFileHeader ) {
         popMapFile.ignore(unsigned(-1), '\n'); // skip header line
     }
-
+    
     while( popMapFile >> sampleID >> popMembership ) {
-//        cout << sampleID << "\t" << popMembership << endl;
+        //        cout << sampleID << "\t" << popMembership << endl;
         ++lineCount;
         if ( tempSampleMap.count( sampleID ) ) {
             cerr << "\nError! Duplicate Sample ID (" << sampleID << ") found!\n\tAborting ...\n";
@@ -1256,17 +1370,17 @@ void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulation
         if ( !mapOfPopulations.count( popMembership ) ) {
             mapOfPopulations.insert( pair<string, int>(popMembership, ++countPops) );
         }
-
-
+        
+        
     }
-//    cout << "lineCount is " << lineCount << endl;
-
+    //    cout << "lineCount is " << lineCount << endl;
+    
     popMapFile.close();
-
+    
     numSamples = countSamples;
     numPopulations = countPops;
-
-
+    
+    
     string uniquePopulationNames[numPopulations];
     int counter = 0;
     //cout << "\nInitial state of mapOfPopulations:\n\tkey\tvalue\n";
@@ -1290,7 +1404,7 @@ void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulation
         mapOfPopulations[ dums ] = counter;
         it++;
     }
-
+    
     if ( VERBOSE )
         cout << "\nPopulation designations by integer ID:\n";
     for ( int i = 0; i < numPopulations; i++ ) {
@@ -1302,7 +1416,7 @@ void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulation
             exit(-1);
         }
     }
-
+    
 }
 
 void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, map<string, int> mapOfPopulations )
@@ -1311,7 +1425,7 @@ void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, 
     string popHeader, popName, colHeaders, alleleCountHeader;
     int popIndex;
     map<string, int>::const_iterator it = mapOfPopulations.begin();
-
+    
     // open file for output
     outputFile.open( filename, ofstream::out );
     if ( outputFile.fail() ) {
@@ -1322,8 +1436,8 @@ void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, 
     colHeaders = "VCFlineNum\tCHROM\tPOS\tID\tREF\tALT\tQUAL\tmedianDP\tmedianGQ\thomoRefCount\thetCount\thomoAltCount";
     // put first few headers in file:
     outputFile << colHeaders;
-
-
+    
+    
     // loop over populations:
     popHeader = "\tALT_SNP_freq_";
     alleleCountHeader = "\trawAlleleCount_";
@@ -1338,7 +1452,7 @@ void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, 
         it++;
     }
     outputFile << endl;
-
+    
     //outputFile.close();
-
+    
 }
