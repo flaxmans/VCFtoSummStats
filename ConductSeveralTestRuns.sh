@@ -1,5 +1,7 @@
 #!/bin/bash
 
+BUFFSIZE=$1
+
 numTests=6
 
 fileList=(BASW_100k.vcf.gz Medium_hmel2.5.30f4.vcf.gz OneHundredK_TotChromCloeNolan.vcf.gz RADseq_allSamples.vcf.gz hmel2.5.30f4.vcf.gz Total_Chromosomes_Combined_with_header.vcf.gz)
@@ -10,13 +12,18 @@ popFiles=(BASW_popMap.txt popFileHmel.txt CloeNolanPopData.txt BASW_popMap.txt p
 date > foo.out
 date > bar.out
 
-for ((i=0; i < 3; i++))
+for ((i=0; i < 6; i++))
 do
     vf=${fileList[$i]}
     if [ -f "ExampleDataFiles/${vf}" ]
     then
       pf=${popFiles[$i]}
-      cmd="./VCFtoSummStats -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf} -d -1.0"
+      if [ $BUFFSIZE -gt 0 ]
+      then
+	      cmd="./VCFtoSummStats -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf} -d -1.0 -B $BUFFSIZE"
+      else
+	      cmd="./VCFtoSummStats -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf} -d -1.0"
+      fi
       echo "$cmd"
       echo "$cmd" >> foo.out
       echo "$cmd" >> bar.out
