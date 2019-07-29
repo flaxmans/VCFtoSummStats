@@ -27,7 +27,7 @@ do
       echo "$cmd"
       echo "$cmd" >> foo.out
       echo "$cmd" >> bar.out
-      $cmd 1>> foo.out 2>> bar.out
+      time $cmd 1>> foo.out 2>> bar.out
       printf "\nDone with test $i\n\n************\n\n" >> foo.out
       printf "\nDone with test $i\n\n************\n\n" >> bar.out
     fi
