@@ -1,6 +1,7 @@
 #!/bin/bash
 
 BUFFSIZE=$1
+PROGNAME=$2
 
 numTests=6
 
@@ -20,9 +21,9 @@ do
       pf=${popFiles[$i]}
       if [ $BUFFSIZE -gt 0 ]
       then
-	      cmd="./VCFtoSummStats -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf} -d -1.0 -B $BUFFSIZE"
+	      cmd="./${PROGNAME} -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf} -d -1.0 -B $BUFFSIZE"
       else
-	      cmd="./VCFtoSummStats -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf} -d -1.0"
+	      cmd="./${PROGNAME} -V ExampleDataFiles/${vf} -P ExampleDataFiles/${pf} -d -1.0"
       fi
       echo "$cmd"
       echo "$cmd" >> foo.out
