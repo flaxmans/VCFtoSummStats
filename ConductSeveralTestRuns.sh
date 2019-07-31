@@ -13,7 +13,7 @@ popFiles=(BASW_popMap.txt popFileHmel.txt CloeNolanPopData.txt BASW_popMap.txt p
 date > foo.out
 date > bar.out
 
-indexes="3 5"
+indexes="0 1 2 3 4 5"
 for i in $indexes
 do
     vf=${fileList[$i]}
