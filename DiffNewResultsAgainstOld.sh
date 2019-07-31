@@ -18,7 +18,7 @@ do
 		testFile="${i}${j}"
 		if [ -f "$testFile" ]
 		then
-			cmd="diff $ref $testFile"
+			cmd="cmp -b $ref $testFile"
 			echo "$cmd :"
 			$cmd | wc -l
 			printf "\n\t*******************\n"
