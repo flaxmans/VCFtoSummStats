@@ -353,7 +353,6 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
             // get operation code:
 #ifndef ONLYGET
             operationCode = formatOpsOrder[tokeni];
-            tokenLength = strlen( tokenHolder );
             if ( operationCode == GT_OPS_CODE ) {
                 // parse the genotype data and add to correct population
                 allele1 = tokenHolder[0];
@@ -400,6 +399,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
 #ifdef DEBUG
                 
                 if ( tokenHolder[1] != checkGTsep1 && tokenHolder[1] != checkGTsep2 ) {
+                    tokenLength = strlen( tokenHolder );
                     cerr << "\nError in calculateSummaryStats():\n\tGT token ";
                     cerr << "does not have expected character (" << checkGTsep1 << " or " << checkGTsep2 << ") between alleles.\n\t";
                     cerr << "I found: " << tokenHolder[1] << ", and the whole token was:\n\t";
@@ -423,6 +423,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
                 
             } else if ( operationCode == DP_OPS_CODE && lookForDP ) {
                 // add the DP data to DP array
+                tokenLength = strlen( tokenHolder );
                 if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
                     DPvalues[sampleCounter] = -1;
                     DPnoCall++;
@@ -434,6 +435,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
                 //                cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", DP is " << token << endl;
             } else if ( operationCode == GQ_OPS_CODE && lookForGQ ) {
                 // add the GQ data to the GQ array
+                tokenLength = strlen( tokenHolder );
                 if ( tokenHolder[0] == '.' && tokenLength == 1 ) {
                     GQvalues[sampleCounter] = -1;
                     GQnoCall++;

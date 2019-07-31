@@ -13,7 +13,7 @@ popFiles=(BASW_popMap.txt popFileHmel.txt CloeNolanPopData.txt BASW_popMap.txt p
 date > foo.out
 date > bar.out
 
-for ((i=0; i < 6; i++))
+for ((i=0; i < 3; i++))
 do
     vf=${fileList[$i]}
     if [ -f "ExampleDataFiles/${vf}" ]
