@@ -1,35 +1,48 @@
 #!/bin/bash
 
+mydate="7.31"
 
+printf "\n\nOld version:\n"
 ./ConductSeveralTestRuns.sh 0 oldVCFprog
+fname="foo.master.${mydate}.out"
+mv foo.out $fname
+fnames="$fname"
 
-mv foo.out foo.master.7.27.out
-
+## 10k
 printf "\n\n10k:\n"
 ./ConductSeveralTestRuns.sh 10000 VCFtoSummStats
+fname="foo.10kbuff.${mydate}.out"
+mv foo.out $fname
+fnames="$fnames $fname"
 
-mv foo.out foo.10kbuff.7.27.out
-
+## 100k
 printf "\n\n100k:\n"
 ./ConductSeveralTestRuns.sh 100000 VCFtoSummStats
+fname="foo.100kbuff.${mydate}.out"
+mv foo.out $fname
+fnames="$fnames $fname"
 
-mv foo.out foo.100kbuff.7.27.out
-
+## 1M
 printf "\n\n1M:\n"
 ./ConductSeveralTestRuns.sh 1000000 VCFtoSummStats
+fname="foo.1Mbuff.${mydate}.out"
+mv foo.out $fname
+fnames="$fnames $fname"
 
-mv foo.out foo.1Mbuff.7.27.out
-
+## 10M
 printf "\n\n10M:\n"
 ./ConductSeveralTestRuns.sh 10000000 VCFtoSummStats
+fname="foo.10Mbuff.${mydate}.out"
+mv foo.out $fname
+fnames="$fnames $fname"
 
-mv foo.out foo.10Mbuff.7.27.out
-
+## 100M
 printf "\n\n100M:\n"
 ./ConductSeveralTestRuns.sh 100000000 VCFtoSummStats
+fname="foo.100Mbuff.${mydate}.out"
+mv foo.out $fname
+fnames="$fnames $fname"
 
-mv foo.out foo.100Mbuff.7.27.out
-
-fnames="foo.master.7.27.out foo.10kbuff.7.27.out foo.100kbuff.7.27.out foo.1Mbuff.7.27.out foo.10Mbuff.7.27.out foo.100Mbuff.7.27.out"
 
 printf "\n\nOutput files are:\n\t$fnames\n\n"
+

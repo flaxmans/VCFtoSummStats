@@ -292,7 +292,7 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
 inline int calculateMedian( int values[], int n, int ignoreFirst )
 {
     int medianSpot = ignoreFirst + ((n - ignoreFirst)/2);
-    partial_sort( values, values + medianSpot + 1, values + n );
+    sort( values, values + n );
     return( values[ medianSpot ] );
 }
 
@@ -553,9 +553,9 @@ void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::in
 
     // use file extension to build filter:
     if ( filext == ".gz" ) {
-        myVCFin.push(gzip_decompressor());
+        myVCFin.push( gzip_decompressor(), MY_BIG_BUFFER_SIZE );
     } else if ( filext == ".bz2" ) {
-        myVCFin.push(bzip2_decompressor());
+        myVCFin.push( bzip2_decompressor(), MY_BIG_BUFFER_SIZE );
     } else if ( filext != ".vcf" ) {
         cerr << "\nError!!  File extension '" << filext << "' not recognized!" << endl;
         cerr << "\n\tAborting ... \n\n";
@@ -563,7 +563,7 @@ void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::in
     }
 
     // make the file the input
-    myVCFin.push( vcfUnfiltered );
+    myVCFin.push( vcfUnfiltered, MY_BIG_BUFFER_SIZE );
 }
 
 
