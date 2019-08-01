@@ -292,7 +292,7 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
 inline int calculateMedian( int values[], int n, int ignoreFirst )
 {
     int medianSpot = ignoreFirst + ((n - ignoreFirst)/2);
-    sort( values, values + n );
+    nth_element( values, values + medianSpot, values + n );
     return( values[ medianSpot ] );
 }
 
