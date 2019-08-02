@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
     convertTimeInterval( startTime, endTime, minutes, seconds);
     cout << "\nIt took " << minutes << "min., " << seconds << "sec."  << " to run.\n";
 
-    return 0;
+    return ( EXIT_SUCCESS );
 }
 
 
@@ -203,7 +203,7 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
     if ( firstSampleCol != 10 ) { // expectation based upon VCF format standards
         cout << "\nError!  First sample column was NOT estimated to be 10th field!\n";
         cout << "\t Aborting ...\n\n";
-        exit(-2);
+        exit( EXIT_FAILURE );
     }
 #endif
     // First: get to header row (past meta-rows) in VCF file:
@@ -235,7 +235,7 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
                     cout << "\nError!  Sample header '" << sampleID << "' from VCF file not found in mapOfSamples!" << endl;
                     cout << "--> Please check that your population file designates\nsamples EXACTLY as they appear in the VCF." << endl;
                     cout << "\tAborting ... " << endl;
-                    exit(-2);
+                    exit( EXIT_FAILURE );
                 }
                 // get popIndex from map:
                 popIndex = mapOfSamples[ sampleID ];
@@ -245,7 +245,7 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
 #ifdef DEBUG
                 if ( popIndex != iter->second ) {
                     cout << "\nError!  maps aren't working like you think!\n";
-                    exit(-3);
+                    exit( EXIT_FAILURE );
                 }
                 if ( count % 100 == 0 || count == (numSamples - 1))
                     cout << " ... " << sampleID << ", popIndex=" << populationReference[count];
@@ -267,14 +267,14 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
                 cout << "\nError in assignSamplesToPopulations():\n\t";
                 cout << "VCFfileLineCount + 1 (" << (VCFfileLineCount + 1) << ") != firstDataLineNumber (" << firstDataLineNumber << ")\n\t";
                 cout << "Aborting ... \n";
-                exit(-2);
+                exit( EXIT_FAILURE );
             }
 
             return true;
         } else {
             cout << "\nError!  VCF file not structured as expected!\n";
             cout << "I did NOT find a header row starting with #CHROM\n\t Aborting ...\n\n";
-            exit(-2);
+            exit( EXIT_FAILURE );
         }
 
     }
@@ -283,7 +283,7 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
     cout << "\nError!  assignSamplesToPopulations() exited with status 'false'.\n\t";
     cout << "--> Please check that VCF has ## meta rows followed by one\n\t";
     cout << "header row starting with #CHROM, followed by SNP datal rows.\n\tAborting ...\n\n";
-    exit(-2);
+    exit( EXIT_FAILURE );
 
     return false;
 }
@@ -408,7 +408,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
                     fprintf(stderr, "Sample counter = %i\n", sampleCounter);
 
                     cerr << "Aborting ... \n\n";
-                    exit(-1);
+                    exit( EXIT_FAILURE );
                 }
                 //                if ( sampleCounter % 100 == 0 ) {
                 //                    cout << "\nsample " << (sampleCounter+1) << ", loop count " << tokeni << ", GT is " << token << endl;
@@ -465,7 +465,7 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
         cout << "sampleCounter = " << sampleCounter << ", but numSamples = " << numSamples;
         cout << "\n\tThis suggests inconsistencies in VCF file construction\n\twith uneven numbers of samples per row";
         cout << "\n\tAborting ... ";
-        exit(-5);
+        exit( EXIT_FAILURE );
     }
 
     // calculate stats
@@ -561,7 +561,7 @@ void createVCFfilter( boost::iostreams::filtering_streambuf<boost::iostreams::in
     } else if ( filext != ".vcf" ) {
         cerr << "\nError!!  File extension '" << filext << "' not recognized!" << endl;
         cerr << "\n\tAborting ... \n\n";
-        exit(-1);
+        exit( EXIT_FAILURE );
     }
 
     // make the file the input
@@ -576,28 +576,26 @@ void determineFormatOpsOrder( int numTokensInFormat, int GTtoken, int DPtoken, i
         cout << "\nError in determineFormatOpsOrder():\n\tmaxSubfieldsInFormat (";
         cout << maxSubfieldsInFormat << ") < number of subfields in your VCF's FORMAT (";
         cout << numTokensInFormat << ")\n";
-        cout << "\t--> Call program again with invocation provided by the wrapper\n\t";
-        cout << "plus -S " << numTokensInFormat << "\n\tAborting ...\n";
-        exit(-4);
+        exit( EXIT_FAILURE );
     }
 
 #ifdef DEBUG
     if ( lookForGQ ) {
         if ( GTtoken == GQtoken ) {
             cout << "\nError in determineFormatOpsOrder()!!\n\tGTtoken(" << GTtoken << ") == GQtoken (" << GQtoken << ")\n";
-            exit(-4);
+            exit( EXIT_FAILURE );
         }
     }
     if ( lookForDP ) {
         if ( GTtoken == DPtoken ) {
             cout << "\nError in determineFormatOpsOrder()!!\n\tGTtoken(" << GTtoken << ") == DPtoken (" << DPtoken << ")\n";
-            exit(-4);
+            exit( EXIT_FAILURE );
         }
     }
     if ( lookForGQ && lookForDP ) {
         if ( GQtoken == DPtoken ) {
             cout << "\nError in determineFormatOpsOrder()!!\n\tGQtoken(" << GQtoken << ") == DPtoken (" << DPtoken << ")\n";
-            exit(-4);
+            exit( EXIT_FAILURE );
         }
     }
 #endif
@@ -636,7 +634,7 @@ inline void errorCheckTokens( int GTtoken, int DPtoken, int GQtoken, int PLtoken
         cout << "indicate that by using the call provided by the wrapper script with the\n";
         cout << "addition of the -D DELIM command line option, where 'DELIM' is replaced\n";
         cout << "by the delimiter your VCF uses.\n\tAborting ...\n\n";
-        exit(-3);
+        exit( EXIT_FAILURE );
     }
     if ( DPtoken == -1 ) { // -1 is flag for not set
         cout << "\n*** WARNING!  DP subfield was not found in FORMAT.\n";
@@ -715,7 +713,7 @@ double extractDPvalue( char* INFObuffer, bool& lookForDPinINFO )
                     holdValueAsChar[ valCount ] = '\0';  // terminate with null string
                     if ( !valCount ) {
                         cerr << "\nError in extractDPvalue():\n\tDP found in INFO but no value found following it!\n\tAborting ....\n\n";
-                        exit(-5);
+                        exit( EXIT_FAILURE );
                     }
                     DPval = stod( holdValueAsChar );
                 }
@@ -795,7 +793,7 @@ inline void getNextField( char* fieldArray, char* bigCharBuffer, istream& VCFfil
 #ifdef DEBUG
     if ( *bigBuffPt == delimiter || *bigBuffPt == '\n' || *bigBuffPt == '\r' ) {
         cerr << "\nError in getNextField():\n\tYou expected to be at next field, but instead *bigBuffPt = " << *bigBuffPt << endl;
-        exit(-1);
+        exit( EXIT_FAILURE );
     }
     if ( pos == 0 ) {
         cerr << "\nError in getNextField():\n\tzero length field found!!  Here are a few chars from the bigCharBuffer:\npos\tchar\n";
@@ -803,7 +801,7 @@ inline void getNextField( char* fieldArray, char* bigCharBuffer, istream& VCFfil
             if ( (buffPointPos + i) >= 0 && (buffPointPos + i) < MY_BIG_BUFFER_SIZE )
                 fprintf(stderr, "%li\t%c\n", (buffPointPos + i), *(bigBuffPt+i) );
         }
-        exit(-1);
+        exit( EXIT_FAILURE );
     }
 #endif
 }
@@ -876,7 +874,7 @@ inline void getNextFieldLineEnd( char* fieldArray, char* bigCharBuffer, istream&
             if ( (buffPointPos + i) >= 0 && (buffPointPos + i) < MY_BIG_BUFFER_SIZE )
                 fprintf(stderr, "%li\t%c\n", (buffPointPos + i), *(bigBuffPt+i) );
         }
-        exit(-1);
+        exit( EXIT_FAILURE );
     }
 #endif
 }
@@ -947,7 +945,7 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
 #ifdef DEBUG
     if ( bigBuffPt != bigCharBuffer ) {
         cerr << "\nError with fillBigCharBuffer():\n\tpointers not reset as you expected!!\n\n";
-        exit(-1);
+        exit( EXIT_FAILURE );
     }
 #endif
     keepOnGoing = true;
@@ -1019,7 +1017,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
     bool numFormatsSet = false, vcfNameSet = false, popFileNameSet = false;
     if ( argc < expectedMinArgNum ) {
         cerr << message;
-        exit(-1);
+        exit( EXIT_FAILURE );
     }
     // default or automatic values:
     popFileHeader = false;  // default is NO header
@@ -1063,13 +1061,13 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
                 break;
 
             default: /* '?' */
-                exit(-1);
+                exit( EXIT_FAILURE );
         }
     }
 
     if ( !popFileNameSet || !vcfNameSet ) {
         cerr << message;
-        exit(-1);
+        exit( EXIT_FAILURE );
     }
 
     cout << "\nOVERALL_DP_MIN_THRESHOLD is " << OVERALL_DP_MIN_THRESHOLD << endl;
@@ -1088,7 +1086,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
     PopulationFile.open( popFileName );
     if ( !PopulationFile.good() ) {
         cout << "\nError in parseCommandLineInput():\n\tPopulation file name '" << popFileName << "' not found!\n\t--> Check spelling and path.\n\tExiting ... \n\n";
-        exit( -1 );
+        exit( EXIT_FAILURE );
     }
 
     // error checking on user input; some arguments are mandatory!
@@ -1098,7 +1096,7 @@ void parseCommandLineInput(int argc, char *argv[], ifstream& PopulationFile, boo
 #endif
     if ( numPopulations < 2 ) {
         cout << "\nError!  numPopulations = " << numPopulations << ", but it has to be >= 2 for this program.\nExiting ...\n\n";
-        exit( -1 );
+        exit( EXIT_FAILURE );
     }
     if ( !numFormatsSet ) {
         cout << "\nWarning!! numFormats (-f) not set on command line.\nAssuming numFormats = " << numFormats << endl;
@@ -1257,7 +1255,7 @@ bool parseMetaColData( istream& VCFfile, char *bigCharBuffer, char*& bigBuffPt, 
         }
         if ( !pos ) {
             cerr << "\nError in parseMetaColData():\n\tpos = 0 meaning FORMAT has length zero!\n\tFORMAT = " << FORMAT << endl;
-            exit(-1);
+            exit( EXIT_FAILURE );
         }
         numTokensInFormat = subfieldCount;
         errorCheckTokens( GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL );
@@ -1354,7 +1352,7 @@ void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulation
 
     if ( !popMapFile.good() ) {
         cout << "\nError in parseCommandLineInput():\n\tPopulation file name '" << fname << "' not found!\n\t--> Check spelling and path.\n\tAborting ... \n\n";
-        exit( -1 );
+        exit( EXIT_FAILURE );
     }
 
 
@@ -1367,7 +1365,7 @@ void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulation
         ++lineCount;
         if ( tempSampleMap.count( sampleID ) ) {
             cerr << "\nError! Duplicate Sample ID (" << sampleID << ") found!\n\tAborting ...\n";
-            exit(-1);
+            exit( EXIT_FAILURE );
         } else {
             tempSampleMap.insert( pair<string, int>(sampleID, ++countSamples) );
         }
@@ -1417,7 +1415,7 @@ void parsePopulationDesigFile( string fname, int& numSamples, int& numPopulation
         dums = uniquePopulationNames[i];
         if ( mapOfPopulations[ dums ] != i ) {
             cerr << "\nError in parsePopulationDesigFile():\n\tindexes not set up as you expect!\n\tAborting ... \n";
-            exit(-1);
+            exit( EXIT_FAILURE );
         }
     }
 
@@ -1434,7 +1432,7 @@ void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, 
     outputFile.open( filename, ofstream::out );
     if ( outputFile.fail() ) {
         cout << "\nError in setUpOutputFile():\n\toutputFile.fail()!\n\t--> Please make sure you have write access to the data file directory.\n\tAborting ... \n\n";
-        exit(-4);
+        exit( EXIT_FAILURE );
     }
     // first several column headers:
     colHeaders = "VCFlineNum\tCHROM\tPOS\tID\tREF\tALT\tQUAL\tmedianDP\tmedianGQ\thomoRefCount\thetCount\thomoAltCount";
@@ -1450,7 +1448,7 @@ void setUpOutputFile (ofstream& outputFile, string vcfName, int numPopulations, 
         popIndex = it->second;
         if ( popIndex != i ) {
             cout << "\nError in setUpOutputFile():\n\tmap isn't ordered as you expect!\n\tAborting ... \n\n";
-            exit(-4);
+            exit( EXIT_FAILURE );
         }
         outputFile << popHeader << popName << alleleCountHeader << popName;
         it++;
