@@ -56,10 +56,10 @@ size_t MY_BIG_BUFFER_SIZE;
 
 int main(int argc, char *argv[])
 {
+    struct timespec startTime, endTime;
+    clock_gettime( CLOCK_REALTIME, &startTime ); // for tracking run time
     // for filtering_streambuf:
     using namespace boost::iostreams;
-
-    clock_t startTime = clock();  // for tracking performance
 
     // variables for command line arguments:
     int numSamples, numPopulations, numFields, numFormats, firstDataLineNumber = -1;
@@ -129,10 +129,10 @@ int main(int argc, char *argv[])
 #ifdef DEBUG
     cout << "\nI ran!!\n\n";
 #endif
-    clock_t endTime = clock();
     int minutes;
     double seconds;
-    convertTimeInterval( (endTime - startTime), minutes, seconds);
+    clock_gettime( CLOCK_REALTIME, &endTime );
+    convertTimeInterval( startTime, endTime, minutes, seconds);
     cout << "\nIt took " << minutes << "min., " << seconds << "sec."  << " to run.\n";
 
     return 0;
@@ -520,9 +520,11 @@ inline void checkFormatToken( char* token, int& GTtoken, int& DPtoken, int& GQto
 }
 
 
-void convertTimeInterval( clock_t myTimeInterval, int& minutes, double& seconds)
+void convertTimeInterval( struct timespec startTime, struct timespec endTime, int& minutes, double& seconds)
 {
-    double totalSeconds = (static_cast<double>( myTimeInterval )) / (static_cast<double>(CLOCKS_PER_SEC));
+    double wholeSeconds = (static_cast<double>( endTime.tv_sec )) - (static_cast<double>( startTime.tv_sec ));
+    double secsFromNano = ((static_cast<double>( endTime.tv_nsec )) - (static_cast<double>( startTime.tv_nsec ))) / 1000000000.0;
+    double totalSeconds = wholeSeconds + secsFromNano;
     long unsigned int totSecondsInt = static_cast<long unsigned int>( totalSeconds );
 
     minutes = totSecondsInt / 60;
