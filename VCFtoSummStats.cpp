@@ -1324,6 +1324,9 @@ inline void parsePL( char* tokenHolder )
      PL (Integer): The phred-scaled genotype likelihoods rounded
      to the closest integer, and otherwise defined precisely as
      the GL field.
+     
+     So, PL = -10 * GL
+     
      */
 
 #ifdef DEBUG
