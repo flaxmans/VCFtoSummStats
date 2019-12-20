@@ -16,7 +16,7 @@ bool assignSamplesToPopulations(istream& VCFfile, int numSamples, int numFields,
 
 inline int calculateMedian( int values[], int n );
 
-void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool lookForDP, bool lookForGQ, bool lookForPL, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference );
+void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool lookForDP, bool lookForGQ, bool lookForPL, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference, long int SNPcount );
 
 inline void checkFormatToken( char* token, int& GTtoken, int& DPtoken, int& GQtoken, int& PLtoken, int subfieldCount  );
 

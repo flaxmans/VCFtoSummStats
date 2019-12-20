@@ -297,7 +297,7 @@ inline int calculateMedian( int values[], int n, int ignoreFirst )
 }
 
 
-void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool lookForDP, bool lookForGQ, bool lookForPL, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference )
+void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuffPt, long int& buffPointPos, long int& totalCharsInLastRead, ofstream& outputFile, int numTokensInFormat, int GTtoken, int DPtoken, int GQtoken, int PLtoken, bool lookForDP, bool lookForGQ, bool lookForPL, char formatDelim, int formatOpsOrder[], int numSamples, int numPopulations, unsigned long int VCFfileLineCount, int* populationReference, long int SNPcount )
 {
     int homoRefCount = 0, homoAltCount = 0, hetCount = 0, altAlleleCounts[numPopulations];
     int validSampleCounts[numPopulations], DPvalues[numSamples], GQvalues[numSamples];
@@ -357,6 +357,10 @@ void calculateSummaryStats( istream& VCFfile, char* bigCharBuffer, char*& bigBuf
                 // parse the genotype data and add to correct population
                 allele1 = tokenHolder[0];
                 allele2 = tokenHolder[2]; // for biallelic SNPS, it should go like this always!
+                
+#ifdef DEBUG
+                cout << endl << "SNPcount " << SNPcount << ", sample: " << sampleCounter << "\n\tGT tokenHolder = " << tokenHolder << endl;
+#endif
 
                 // considering the diploid genotype, there are 9 options:
                 if ( allele1 == '0' ) {
@@ -972,7 +976,7 @@ void parseActualData(istream& VCFfile, int numFormats, char formatDelim, int max
             outputFile << VCFfileLineCount << "\t" << CHROM << "\t" << POS << "\t" << ID << "\t" << REF << "\t" << ALT << "\t" << QUAL;
 #endif
             // let's calculate and store data for one line, i.e., one SNP at a time:
-            calculateSummaryStats( VCFfile, bigCharBuffer, bigBuffPt, buffPointPos, totalCharsInLastRead, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference );
+            calculateSummaryStats( VCFfile, bigCharBuffer, bigBuffPt, buffPointPos, totalCharsInLastRead, outputFile, numTokensInFormat, GTtoken, DPtoken, GQtoken, PLtoken, lookForDP, lookForGQ, lookForPL, formatDelim, formatOpsOrder, numSamples, numPopulations, VCFfileLineCount, populationReference, SNPcount );
 
             // add end of line (done with this line):
             outputFile << endl;
@@ -1330,14 +1334,38 @@ inline void parsePL( char* tokenHolder )
      */
 
 #ifdef DEBUG
-    //cout << "\ntokenHolder = " << tokenHolder << endl;
-    //char* tempCharArray = strtok(tokenHolder, ",");
-    //int i = 0;
-    //while ( tempCharArray ) {
-    //    cout << "\ttoken part " << ++i << ":\t" << tempCharArray << endl;
-    //    tempCharArray = strtok(NULL, ",");
-    //}
-    //cout << endl;
+    cout << "\tPL tokenHolder = " << tokenHolder << endl;
+    char* tempCharArray = strtok(tokenHolder, ",");
+    int numParts = 3; // there should always be three for a diploid!
+    double likelihoods[numParts];
+    double normalSum = 0.0, sillydoub;
+    int i = 0;
+    while ( tempCharArray ) {
+        //cout << "\ntempCharArray = " << tempCharArray << endl;
+        //cout << "tokenHolder = " << tokenHolder << endl;
+        likelihoods[i] = pow(10, (strtod(tempCharArray, NULL) /  -10.0));
+        normalSum += likelihoods[i];
+        cout << "\tPL token part " << i << ":\t" << tempCharArray << endl;
+        cout << "\t\tUn-phred and likelihood:  ";
+        cout << likelihoods[(i++)] << endl;
+        tempCharArray = strtok(NULL, ",");
+    }
+    // confirm diploid PL num subfields expectation:
+    if ( i != numParts ) {
+        cout << "\nError in parsePL():\n\tnum loops on PL tokenHolder (" << i << ") != " << numParts;
+        cout << "\n\tExiting!\n";
+        exit( EXIT_FAILURE );
+    }
+    normalSum = 1.0 / normalSum;
+    cout << "\tnormalSum = " << normalSum << endl;
+    for ( i = 0; i < numParts; i++ ) {
+        likelihoods[i] *= normalSum; // normalization to 1
+        cout << "\t" << likelihoods[i];
+    }
+    
+
+    
+    cout << endl;
     //exit(0);
 #endif
 
