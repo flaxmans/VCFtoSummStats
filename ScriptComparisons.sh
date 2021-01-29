@@ -1,11 +1,11 @@
 #!/bin/bash
 
-mydate="7.31"
+mydate="8.02"
 
-printf "\n\nOld version:\n"
-./ConductSeveralTestRuns.sh 0 oldVCFprog
+#printf "\n\nOld version:\n"
+#./ConductSeveralTestRuns.sh 0 oldVCFprog
 fname="foo.master.${mydate}.out"
-mv foo.out $fname
+#mv foo.out $fname
 fnames="$fname"
 
 ## 10k
